@@ -14,6 +14,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install meson ninja
+          sudo apt update
           sudo apt install libcurl4-gnutls-dev
       - name: Configure build
         run: meson setup builddir --prefix $PWD/out
@@ -36,6 +37,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install meson ninja
+          sudo apt update
           sudo apt install libcurl4-gnutls-dev
       - name: Configure build
         run: meson setup builddir
