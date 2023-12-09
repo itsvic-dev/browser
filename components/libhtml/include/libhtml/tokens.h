@@ -37,8 +37,8 @@ public:
 };
 
 typedef struct {
-  std::string name;
-  std::string value;
+  std::wstring name;
+  std::wstring value;
 } Attribute;
 
 class TagToken : public Token {
@@ -46,46 +46,46 @@ public:
   TagToken(TokenType type);
   TokenType type();
 
-  std::string name();
+  std::wstring name();
   void appendName(char c);
-  void appendName(const std::string name);
+  void appendName(const std::wstring name);
 
   bool selfClosing = false;
   std::vector<Attribute> attributes = {};
 
 private:
-  std::string m_name = "";
+  std::wstring m_name = L"";
   TokenType m_type;
 };
 
 class CommentToken : public Token {
 public:
   CommentToken() = default;
-  CommentToken(std::string data);
+  CommentToken(std::wstring data);
   TokenType type();
 
-  std::string data();
+  std::wstring data();
   void appendData(char c);
 
 private:
-  std::string m_data = "";
+  std::wstring m_data = L"";
 };
 
 class DoctypeToken : public Token {
 public:
   DoctypeToken() = default;
   DoctypeToken(char c);
-  DoctypeToken(std::string name);
+  DoctypeToken(std::wstring name);
   TokenType type();
 
-  std::string name();
+  std::wstring name();
   void appendName(char c);
-  void appendName(const std::string name);
+  void appendName(const std::wstring name);
   bool forceQuirks();
   void setForceQuirks(bool v);
 
 private:
-  std::string m_name = "";
+  std::wstring m_name = L"";
   bool m_forceQuirks = false;
 };
 

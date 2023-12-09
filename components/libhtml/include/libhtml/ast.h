@@ -3,6 +3,7 @@
 #include "libhtml/tokens.h"
 #include <cstddef>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace LibHTML {
@@ -41,9 +42,11 @@ public:
 
 private:
   void parseTick();
+  void consume();
 
   size_t tokenPtr = 0;
   std::shared_ptr<Token> token = nullptr;
+  std::vector<std::shared_ptr<Token>> tokens = {};
 
   ParserMode insertionMode = INITIAL;
   DOM::Document document;

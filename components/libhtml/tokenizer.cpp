@@ -17,6 +17,7 @@ namespace LibHTML {
 void Tokenizer::process(const char *input, size_t size) {
   // Walk the input using the state machine described by the HTML spec
   // https://html.spec.whatwg.org/#tokenization
+  // FIXME: convert to wstring before feeding parser
   this->input = input;
   input_size = size;
   input_ptr = 0;
@@ -126,7 +127,7 @@ void Tokenizer::stateTick() {
       assert(current_token->type() == START_TAG ||
              current_token->type() == END_TAG);
       auto token = std::static_pointer_cast<TagToken>(current_token);
-      token->appendName("\xff\xfd");
+      token->appendName(L"\ufffd");
       return;
     }
     if (current_char == EOF) {
@@ -186,13 +187,13 @@ void Tokenizer::stateTick() {
     IF_IS('=') {
       assert(current_token->type() == START_TAG);
       auto token = std::static_pointer_cast<TagToken>(current_token);
-      token->attributes.push_back({std::string(1, current_char), ""});
+      token->attributes.push_back({std::wstring(1, current_char), L""});
       current_state = ATTRIBUTE_NAME;
       return;
     }
     assert(current_token->type() == START_TAG);
     auto token = std::static_pointer_cast<TagToken>(current_token);
-    token->attributes.push_back({"", ""});
+    token->attributes.push_back({L"", L""});
     input_ptr--;
     current_state = ATTRIBUTE_NAME;
     break;
@@ -222,7 +223,7 @@ void Tokenizer::stateTick() {
       // REPLACEMENT CHARACTER character to the current attribute's name."
       assert(current_token->type() == START_TAG);
       auto token = std::static_pointer_cast<TagToken>(current_token);
-      token->attributes.back().name += "\xff\xfd";
+      token->attributes.back().name += L"\ufffd";
       return;
     }
     assert(current_token->type() == START_TAG);
@@ -252,7 +253,7 @@ void Tokenizer::stateTick() {
     }
     assert(current_token->type() == START_TAG);
     auto token = std::static_pointer_cast<TagToken>(current_token);
-    token->attributes.push_back({"", ""});
+    token->attributes.push_back({L"", L""});
     input_ptr--;
     current_state = ATTRIBUTE_NAME;
     break;
@@ -301,7 +302,7 @@ void Tokenizer::stateTick() {
       // REPLACEMENT CHARACTER character to the current attribute's value."
       assert(current_token->type() == START_TAG);
       auto token = std::static_pointer_cast<TagToken>(current_token);
-      token->attributes.back().value += "\xff\xfd";
+      token->attributes.back().value += L"\ufffd";
       return;
     }
     IF_IS(EOF) {
@@ -331,7 +332,7 @@ void Tokenizer::stateTick() {
       // REPLACEMENT CHARACTER character to the current attribute's value."
       assert(current_token->type() == START_TAG);
       auto token = std::static_pointer_cast<TagToken>(current_token);
-      token->attributes.back().value += "\xff\xfd";
+      token->attributes.back().value += L"\ufffd";
       return;
     }
     IF_IS(EOF) {
@@ -366,7 +367,7 @@ void Tokenizer::stateTick() {
       // REPLACEMENT CHARACTER character to the current attribute's value."
       assert(current_token->type() == START_TAG);
       auto token = std::static_pointer_cast<TagToken>(current_token);
-      token->attributes.back().value += "\xff\xfd";
+      token->attributes.back().value += L"\ufffd";
       return;
     }
     IF_IS(EOF) {
@@ -444,7 +445,7 @@ void Tokenizer::stateTick() {
       // FIXME: handle CDATA properly
       // "this is a cdata-in-html-content parse error. Create a comment token
       // whose data is the "[CDATA[" string. Switch to the bogus comment state."
-      create(std::make_shared<CommentToken>("[CDATA["));
+      create(std::make_shared<CommentToken>(L"[CDATA["));
       current_state = BOGUS_COMMENT;
       return;
     }
@@ -500,8 +501,7 @@ void Tokenizer::stateTick() {
       // "This is an unexpected-null-character parse error. Create a new DOCTYPE
       // token. Set the token's name to a U+FFFD REPLACEMENT CHARACTER
       // character. Switch to the DOCTYPE name state."
-      // FIXME: proper unicode support
-      create(std::make_shared<DoctypeToken>("\xff\xfd"));
+      create(std::make_shared<DoctypeToken>(L"\ufffd"));
       current_state = DOCTYPE_NAME;
       return;
     }
@@ -550,11 +550,10 @@ void Tokenizer::stateTick() {
     }
     if (current_char == 0) {
       // "This is an unexpected-null-character parse error. Append a U+FFFD
-      // REPLACEMENT CHARACTER character to the current DOCTYPE token's name."
-      // FIXME: proper unicode
+      // REPLACEMENT CHARACTER character to the current DOCTYPE token's name.
       assert(current_token->type() == DOCTYPE_TOKEN);
       auto token = std::static_pointer_cast<DoctypeToken>(current_token);
-      token->appendName("\xff\xfd");
+      token->appendName(L"\ufffd");
     }
     if (current_char == EOF) {
       // "This is an eof-in-doctype parse error. Set the current DOCTYPE token's
