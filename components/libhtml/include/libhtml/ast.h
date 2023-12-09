@@ -1,5 +1,6 @@
 #pragma once
 #include "libhtml/dom.h"
+#include "libhtml/dom/element.h"
 #include "libhtml/tokens.h"
 #include <cstddef>
 #include <memory>
@@ -7,6 +8,8 @@
 #include <vector>
 
 namespace LibHTML {
+
+#define NS_HTML L"http://www.w3.org/1999/xhtml"
 
 enum ParserMode {
   INITIAL,
@@ -36,21 +39,30 @@ enum ParserMode {
 
 class ASTParser {
 public:
-  ASTParser() = default;
+  ASTParser();
 
   void parse(std::vector<std::shared_ptr<Token>> tokens);
+  std::shared_ptr<DOM::Document> document;
 
 private:
   void parseTick();
   void consume();
+
+  std::shared_ptr<DOM::HTMLElement>
+  createElement(std::shared_ptr<DOM::Document> document, std::wstring localName,
+                std::wstring ns, std::wstring prefix = L"");
+
+  std::shared_ptr<DOM::HTMLElement>
+  createElementForToken(std::shared_ptr<TagToken> token);
 
   size_t tokenPtr = 0;
   std::shared_ptr<Token> token = nullptr;
   std::vector<std::shared_ptr<Token>> tokens = {};
 
   ParserMode insertionMode = INITIAL;
-  DOM::Document document;
   bool fosterParenting = false;
+
+  std::vector<std::shared_ptr<DOM::Element>> openElementStack;
 };
 
 } // namespace LibHTML

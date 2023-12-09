@@ -25,9 +25,12 @@ public:
   unsigned short nodeType;
   DOMString nodeName;
   std::shared_ptr<Document> ownerDocument = nullptr;
+  Node *parentNode = nullptr;
   std::vector<std::shared_ptr<Node>> childNodes;
 
   void appendChild(std::shared_ptr<Node> node);
+
+  virtual const std::string _name();
 };
 
 } // namespace LibHTML::DOM

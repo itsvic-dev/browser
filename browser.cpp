@@ -1,4 +1,5 @@
 #include "libhtml.h"
+#include "libhtml/dom/node.h"
 #include <cassert>
 #include <cstdio>
 #include <curl/curl.h>
@@ -14,6 +15,13 @@ size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {
   assert(size == 1);
   tokenizer.process(ptr, nmemb);
   return tokenizer.processed();
+}
+
+void walkTree(std::shared_ptr<LibHTML::DOM::Node> node, int indent = 0) {
+  std::cout << std::string(indent * 2, ' ') << "└" << node->_name() << "\n";
+  for (auto child : node->childNodes) {
+    walkTree(child, indent + 1);
+  }
 }
 
 int main(int argc, char **argv) {
@@ -34,6 +42,9 @@ int main(int argc, char **argv) {
   const char eof[] = {EOF};
   tokenizer.process(eof, 1);
   parser.parse(tokenizer.tokens);
+
+  std::cout << "\n\nDOM tree dump:\n";
+  walkTree(parser.document);
 
   return 0;
 }

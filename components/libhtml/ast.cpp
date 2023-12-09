@@ -1,11 +1,14 @@
 #include "libhtml/ast.h"
 #include "libhtml/dom.h"
 #include "libhtml/dom/comment.h"
+#include "libhtml/dom/element.h"
 #include "libhtml/tokens.h"
 #include <iostream>
 #include <memory>
 
 namespace LibHTML {
+
+ASTParser::ASTParser() : document(std::make_shared<DOM::Document>()) {}
 
 void ASTParser::parse(std::vector<std::shared_ptr<Token>> tokens) {
   this->tokens = tokens;
@@ -31,7 +34,7 @@ void ASTParser::parseTick() {
     }
     if (token->type() == COMMENT) {
       auto comToken = std::static_pointer_cast<CommentToken>(token);
-      document.appendChild(std::make_shared<DOM::Comment>(comToken->data()));
+      document->appendChild(std::make_shared<DOM::Comment>(comToken->data()));
       return;
     }
     if (token->type() == DOCTYPE_TOKEN) {
@@ -39,11 +42,11 @@ void ASTParser::parseTick() {
       auto documentType = std::make_shared<DOM::DocumentType>();
       documentType->name = doctypeToken->name();
       // FIXME: if the document is not an iframe srcdoc document, [...]
-      if (!document.parserCannotChangeMode &&
+      if (!document->parserCannotChangeMode &&
           (doctypeToken->forceQuirks() || doctypeToken->name() != L"html")) {
-        document.mode = "quirks";
+        document->mode = "quirks";
       }
-      document.appendChild(documentType);
+      document->appendChild(documentType);
       insertionMode = BEFORE_HTML;
       return;
     }
@@ -52,8 +55,8 @@ void ASTParser::parseTick() {
     // Document to quirks mode.
     // In any case, switch the insertion mode to "before html", then reprocess
     // the token."
-    if (!document.parserCannotChangeMode)
-      document.mode = "quirks";
+    if (!document->parserCannotChangeMode)
+      document->mode = "quirks";
     tokenPtr--;
     insertionMode = BEFORE_HTML;
     break;
@@ -68,17 +71,22 @@ void ASTParser::parseTick() {
     }
     if (token->type() == COMMENT) {
       auto commentToken = std::static_pointer_cast<CommentToken>(token);
-      document.appendChild(
+      document->appendChild(
           std::make_shared<DOM::Comment>(commentToken->data()));
       return;
+    }
+    if (token->type() == CHARACTER) {
+      auto charToken = std::static_pointer_cast<CharacterToken>(token);
+      if (isspace(charToken->character())) {
+        return; // ignore
+      }
     }
     if (token->type() == START_TAG) {
       auto tagToken = std::static_pointer_cast<TagToken>(token);
       if (tagToken->name() == L"html") {
-        // TODO: "Create an element for the token in the HTML namespace, with
-        // the Document as the intended parent. Append it to the Document
-        // object. Put this element in the stack of open elements."
-
+        auto htmlElement = createElementForToken(tagToken);
+        openElementStack.push_back(htmlElement);
+        document->appendChild(htmlElement);
         insertionMode = BEFORE_HEAD;
         return;
       }
@@ -91,13 +99,22 @@ void ASTParser::parseTick() {
         return;
       }
     }
-    // "Create an html element whose node document is the Document object.
-    // Append it to the Document object. Put this element in the stack of open
-    // elements.
-    // Switch the insertion mode to "before head", then reprocess the
-    // token."
+    auto htmlElement = createElement(document, L"html", NS_HTML);
+    openElementStack.push_back(htmlElement);
+    document->appendChild(htmlElement);
     insertionMode = BEFORE_HEAD;
     tokenPtr--;
+    break;
+  }
+
+  // https://html.spec.whatwg.org/multipage/parsing.html#the-before-head-insertion-mode
+  case BEFORE_HEAD: {
+    if (token->type() == CHARACTER) {
+      auto charToken = std::static_pointer_cast<CharacterToken>(token);
+      if (isspace(charToken->character())) {
+        return; // ignore
+      }
+    }
     break;
   }
 
@@ -105,6 +122,37 @@ void ASTParser::parseTick() {
     std::cerr << "[LibHTML] Unhandled insertion mode " << insertionMode << "\n";
     throw 0;
   }
+}
+
+std::shared_ptr<DOM::HTMLElement>
+ASTParser::createElement(std::shared_ptr<DOM::Document> document,
+                         std::wstring ns, std::wstring localName,
+                         std::wstring prefix) {
+  // FIXME: handle custom elements once we bring in JS
+  std::shared_ptr<DOM::HTMLElement> result = nullptr;
+  if (localName == L"html") {
+    // FIXME: HTMLHtmlElement
+    result = std::make_shared<DOM::HTMLElement>();
+  }
+
+  if (result != nullptr) {
+    result->ownerDocument = document;
+    result->namespaceURI = ns;
+    result->localName = localName;
+    result->tagName = localName;
+    result->prefix = prefix;
+  }
+
+  return result;
+}
+
+std::shared_ptr<DOM::HTMLElement>
+ASTParser::createElementForToken(std::shared_ptr<TagToken> token) {
+  auto document = this->document;
+  auto localName = token->name();
+  auto element = createElement(document, NS_HTML, localName);
+  // FIXME: attributes
+  return element;
 }
 
 void ASTParser::consume() { token = tokens[tokenPtr++]; }
