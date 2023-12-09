@@ -1,11 +1,12 @@
 #include "libhtml/tokenizer.h"
 #include "libhtml.h"
-#include <cctype>
+#include "libhtml/tokens.h"
+#include <cassert>
 #include <cstdio>
 #include <ios>
 #include <iostream>
+#include <memory>
 #include <string.h>
-#include <strings.h>
 
 // helper macros
 #define IF_IS(x) if (current_char == (x))
@@ -21,8 +22,8 @@ void Tokenizer::process(const char *input, size_t size) {
 
   while (input_ptr < input_size) {
     std::cout << "[LibHTML] state=" << current_state << " char=";
-    std::cout << std::hex << (int)current_char << std::dec << "/"
-              << current_char;
+    std::cout << std::hex << (int)input[input_ptr] << std::dec << "/"
+              << input[input_ptr];
     std::cout << " ptr=" << input_ptr << "\n";
     stateTick();
   }
@@ -46,13 +47,13 @@ void Tokenizer::stateTick() {
     case 0:
       // "This is an unexpected-null-character parse error. Emit the current
       // input character as a character token."
-      emit(CHARACTER, current_char);
+      emit(std::make_shared<CharacterToken>(current_char));
       break;
     case EOF:
-      emit(END_OF_FILE, 0);
+      emit(std::make_shared<EOFToken>());
       break;
     default:
-      emit(CHARACTER, current_char);
+      emit(std::make_shared<CharacterToken>(current_char));
     }
     break;
   }
@@ -69,7 +70,7 @@ void Tokenizer::stateTick() {
       return;
     }
     if (isalpha(current_char)) {
-      create(START_TAG, "");
+      create(std::make_shared<TagToken>(START_TAG));
       input_ptr--; // reconsume
       current_state = TAG_NAME;
       return;
@@ -78,7 +79,7 @@ void Tokenizer::stateTick() {
       // "This is an unexpected-question-mark-instead-of-tag-name parse error.
       // Create a comment token whose data is the empty string. Reconsume in the
       // bogus comment state."
-      create(COMMENT, "");
+      create(std::make_shared<CommentToken>());
       input_ptr--; // reconsume
       current_state = BOGUS_COMMENT;
       return;
@@ -86,13 +87,13 @@ void Tokenizer::stateTick() {
     if (current_char == EOF) {
       // "This is an eof-before-tag-name parse error. Emit a U+003C LESS-THAN
       // SIGN character token and an end-of-file token."
-      emit(CHARACTER, '>');
-      emit(END_OF_FILE, "");
+      emit(std::make_shared<CharacterToken>('>'));
+      emit(std::make_shared<EOFToken>());
       return;
     }
     // "This is an invalid-first-character-of-tag-name parse error. Emit a
     // U+003C LESS-THAN SIGN character token. Reconsume in the data state."
-    emit(CHARACTER, '>');
+    emit(std::make_shared<CharacterToken>('>'));
     input_ptr--; // reconsume
     current_state = DATA;
     break;
@@ -115,22 +116,31 @@ void Tokenizer::stateTick() {
       return;
     }
     if (isupper(current_char)) {
-      current_token.data += current_char + 0x20;
+      assert(current_token->type() == START_TAG ||
+             current_token->type() == END_TAG);
+      auto token = std::static_pointer_cast<TagToken>(current_token);
+      token->appendName(current_char + 0x20);
       return;
     }
     if (current_char == 0) {
       // "This is an unexpected-null-character parse error. Append a U+FFFD
       // REPLACEMENT CHARACTER character to the current tag token's tag name."
       // FIXME: proper unicode
-      current_token.data += "\xff\xfd";
+      assert(current_token->type() == START_TAG ||
+             current_token->type() == END_TAG);
+      auto token = std::static_pointer_cast<TagToken>(current_token);
+      token->appendName("\xff\xfd");
       return;
     }
     if (current_char == EOF) {
       // "This is an eof-in-tag parse error. Emit an end-of-file token."
-      emit(END_OF_FILE, "");
+      emit(std::make_shared<EOFToken>());
       return;
     }
-    current_token.data += current_char;
+    assert(current_token->type() == START_TAG ||
+           current_token->type() == END_TAG);
+    auto token = std::static_pointer_cast<TagToken>(current_token);
+    token->appendName(current_char);
     break;
   }
 
@@ -138,7 +148,7 @@ void Tokenizer::stateTick() {
   case END_TAG_OPEN: {
     consume();
     if (isalpha(current_char)) {
-      create(END_TAG, "");
+      create(std::make_shared<TagToken>(END_TAG));
       input_ptr--;
       current_state = TAG_NAME;
       return;
@@ -152,15 +162,15 @@ void Tokenizer::stateTick() {
       // "This is an eof-before-tag-name parse error. Emit a U+003C LESS-THAN
       // SIGN character token, a U+002F SOLIDUS character token and an
       // end-of-file token."
-      emit(CHARACTER, '<');
-      emit(CHARACTER, '/');
-      emit(END_OF_FILE, "");
+      emit(std::make_shared<CharacterToken>('<'));
+      emit(std::make_shared<CharacterToken>('/'));
+      emit(std::make_shared<EOFToken>());
       return;
     }
     // "This is an invalid-first-character-of-tag-name parse error. Create a
     // comment token whose data is the empty string. Reconsume in the bogus
     // comment state."
-    create(COMMENT, "");
+    create(std::make_shared<CommentToken>());
     current_state = BOGUS_COMMENT;
     break;
   }
@@ -178,7 +188,7 @@ void Tokenizer::stateTick() {
     }
     IF_IS('=') {
       // TODO: start a new attribute in the tag token
-      // i should make a Tag class with derivatives (such as TagToken or
+      // i should make a Token class with derivatives (such as TagToken or
       // DoctypeToken)
       current_state = ATTRIBUTE_NAME;
       return;
@@ -192,7 +202,7 @@ void Tokenizer::stateTick() {
   case MARKUP_DECLARATION: {
     if (strncmp(&input[input_ptr], "--", 2) == 0) {
       consume(2);
-      emit(COMMENT, "");
+      emit(std::make_shared<CommentToken>());
       current_state = COMMENT_START;
       return;
     }
@@ -206,14 +216,14 @@ void Tokenizer::stateTick() {
       // FIXME: handle CDATA properly
       // "this is a cdata-in-html-content parse error. Create a comment token
       // whose data is the "[CDATA[" string. Switch to the bogus comment state."
-      create(COMMENT, "[CDATA[");
+      create(std::make_shared<CommentToken>("[CDATA["));
       current_state = BOGUS_COMMENT;
       return;
     }
     // "This is an incorrectly-opened-comment parse error. Create a comment
     // token whose data is the empty string. Switch to the bogus comment state
     // (don't consume anything in the current state)."
-    create(COMMENT, "");
+    create(std::make_shared<CommentToken>());
     current_state = BOGUS_COMMENT;
     break;
   }
@@ -234,8 +244,10 @@ void Tokenizer::stateTick() {
       // "This is an eof-in-doctype parse error. Create a new DOCTYPE token. Set
       // its force-quirks flag to on. Emit the current token. Emit an
       // end-of-file token."
-      emit(DOCTYPE_TOKEN, ""); // FIXME: force-quirks flag
-      emit(END_OF_FILE, "");
+      auto token = std::make_shared<DoctypeToken>();
+      token->setForceQuirks(true);
+      emit(token); // FIXME: force-quirks flag
+      emit(std::make_shared<EOFToken>());
       return;
     }
     // "This is a missing-whitespace-before-doctype-name parse error. Reconsume
@@ -252,7 +264,7 @@ void Tokenizer::stateTick() {
       return; // ignore
     }
     if (isupper(current_char)) {
-      create(DOCTYPE_TOKEN, current_char + 0x20);
+      create(std::make_shared<DoctypeToken>(current_char + 0x20));
       current_state = DOCTYPE_NAME;
       return;
     }
@@ -261,7 +273,7 @@ void Tokenizer::stateTick() {
       // token. Set the token's name to a U+FFFD REPLACEMENT CHARACTER
       // character. Switch to the DOCTYPE name state."
       // FIXME: proper unicode support
-      create(DOCTYPE_TOKEN, "\xff\xfd");
+      create(std::make_shared<DoctypeToken>("\xff\xfd"));
       current_state = DOCTYPE_NAME;
       return;
     }
@@ -269,22 +281,25 @@ void Tokenizer::stateTick() {
       // "This is a missing-doctype-name parse error. Create a new DOCTYPE
       // token. Set its force-quirks flag to on. Switch to the data state. Emit
       // the current token."
-      // FIXME: force-quirks flag
-      emit(DOCTYPE_TOKEN, "");
+      // emit(DOCTYPE_TOKEN, "");
+      auto token = std::make_shared<DoctypeToken>();
+      token->setForceQuirks(true);
       current_state = DATA;
+      emit(token);
       return;
     }
     if (current_char == EOF) {
       // "This is an eof-in-doctype parse error. Create a new DOCTYPE token. Set
       // its force-quirks flag to on. Emit the current token. Emit an
       // end-of-file token."
-      // FIXME: force-quirks flag
-      emit(DOCTYPE_TOKEN, "");
-      emit(END_OF_FILE, "");
+      auto token = std::make_shared<DoctypeToken>();
+      token->setForceQuirks(true);
+      emit(token);
+      emit(std::make_shared<EOFToken>());
       return;
     }
 
-    create(DOCTYPE_TOKEN, current_char);
+    create(std::make_shared<DoctypeToken>(current_char));
     current_state = DOCTYPE_NAME;
     break;
   }
@@ -301,13 +316,17 @@ void Tokenizer::stateTick() {
       emitCurrent();
     }
     if (isupper(current_char)) {
-      current_token.data += current_char + 0x20;
+      assert(current_token->type() == DOCTYPE_TOKEN);
+      auto token = std::static_pointer_cast<DoctypeToken>(current_token);
+      token->appendName(current_char + 0x20);
     }
     if (current_char == 0) {
       // "This is an unexpected-null-character parse error. Append a U+FFFD
       // REPLACEMENT CHARACTER character to the current DOCTYPE token's name."
       // FIXME: proper unicode
-      current_token.data += "\xff\xfd";
+      assert(current_token->type() == DOCTYPE_TOKEN);
+      auto token = std::static_pointer_cast<DoctypeToken>(current_token);
+      token->appendName("\xff\xfd");
     }
     if (current_char == EOF) {
       // "This is an eof-in-doctype parse error. Set the current DOCTYPE token's
@@ -315,9 +334,11 @@ void Tokenizer::stateTick() {
       // end-of-file token."
       // FIXME: force-quirks flag
       emitCurrent();
-      emit(END_OF_FILE, "");
+      emit(std::make_shared<EOFToken>());
     }
-    current_token.data += current_char;
+    assert(current_token->type() == DOCTYPE_TOKEN);
+    auto token = std::static_pointer_cast<DoctypeToken>(current_token);
+    token->appendName(current_char);
     break;
   }
 
@@ -329,21 +350,12 @@ void Tokenizer::stateTick() {
   }
 }
 
-void Tokenizer::emit(TokenType type, const char data) {
-  emit(type, std::string(1, data));
+void Tokenizer::emit(std::shared_ptr<Token> token) {
+  tokens.push_back(token);
+  std::cout << "[LibHTML] emitting token " << token->type() << "\n";
 }
-void Tokenizer::emit(TokenType type, const std::string data) {
-  tokens.push_back({type, data});
-  std::cout << "[LibHTML] emitting token " << type << " (data " << data
-            << ")\n";
-}
-void Tokenizer::create(TokenType type, const char data) {
-  create(type, std::string(1, data));
-}
-void Tokenizer::create(TokenType type, const std::string data) {
-  current_token = Token{type, data};
-}
-void Tokenizer::emitCurrent() { emit(current_token.type, current_token.data); }
+void Tokenizer::create(std::shared_ptr<Token> token) { current_token = token; }
+void Tokenizer::emitCurrent() { emit(current_token); }
 
 void Tokenizer::consume() { current_char = input[input_ptr++]; }
 void Tokenizer::consume(size_t howMany) {

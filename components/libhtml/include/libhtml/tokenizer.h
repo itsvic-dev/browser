@@ -1,12 +1,14 @@
 #pragma once
+#include "libhtml/tokens.h"
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace LibHTML {
 
-typedef enum {
-  UNDEFINED,
+enum TokenizerState : int {
+  UNDEFINED_STATE,
   DATA,
   TAG_OPEN,
   TAG_NAME,
@@ -23,21 +25,7 @@ typedef enum {
   BEFORE_DOCTYPE_NAME,
   DOCTYPE_NAME,
   AFTER_DOCTYPE_NAME,
-} TokenizerState;
-
-typedef enum {
-  CHARACTER,
-  END_OF_FILE,
-  START_TAG,
-  END_TAG,
-  COMMENT,
-  DOCTYPE_TOKEN,
-} TokenType;
-
-typedef struct {
-  TokenType type;
-  std::string data;
-} Token;
+};
 
 class Tokenizer {
 public:
@@ -55,22 +43,20 @@ private:
   void stateTick();
   void consume();
   void consume(size_t howMany);
-  void emit(TokenType type, const char data);
-  void emit(TokenType type, const std::string data);
-  void create(TokenType type, const char data);
-  void create(TokenType type, const std::string data);
+  void emit(std::shared_ptr<Token> token);
+  void create(std::shared_ptr<Token> token);
   void emitCurrent();
 
   TokenizerState current_state = DATA;
-  TokenizerState return_state = UNDEFINED;
+  TokenizerState return_state = UNDEFINED_STATE;
 
   const char *input = nullptr;
   size_t input_size = 0;
   size_t input_ptr = 0;
   char current_char = 0;
 
-  Token current_token;
-  std::vector<Token> tokens = {};
+  std::shared_ptr<Token> current_token;
+  std::vector<std::shared_ptr<Token>> tokens = {};
 };
 
 } // namespace LibHTML

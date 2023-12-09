@@ -3,6 +3,7 @@ libhtml_inc = include_directories('include')
 libhtml_lib = library(
     'components-libhtml',
     'tokenizer.cpp',
+    'tokens.cpp',
     include_directories: libhtml_inc,
 )
 
