@@ -22,10 +22,6 @@ void Tokenizer::process(const char *input, size_t size) {
   input_ptr = 0;
 
   while (input_ptr < input_size) {
-    std::cout << "[LibHTML] state=" << current_state << " char=";
-    std::cout << std::hex << (int)input[input_ptr] << std::dec << "/"
-              << input[input_ptr];
-    std::cout << " ptr=" << input_ptr << "\n";
     stateTick();
   }
 }
@@ -584,10 +580,7 @@ void Tokenizer::stateTick() {
   }
 }
 
-void Tokenizer::emit(std::shared_ptr<Token> token) {
-  tokens.push_back(token);
-  std::cout << "[LibHTML] emitting token " << token->type() << "\n";
-}
+void Tokenizer::emit(std::shared_ptr<Token> token) { tokens.push_back(token); }
 void Tokenizer::create(std::shared_ptr<Token> token) { current_token = token; }
 void Tokenizer::emitCurrent() { emit(current_token); }
 
