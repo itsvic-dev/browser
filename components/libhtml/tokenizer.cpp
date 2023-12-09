@@ -1,3 +1,4 @@
+#include "libhtml/tokenizer.h"
 #include "libhtml.h"
 #include <cctype>
 #include <cstdio>
@@ -17,7 +18,8 @@ void Tokenizer::process(const char *input, size_t size) {
 
   while (input_ptr < input_size) {
     std::cout << "[LibHTML] state=" << current_state << " char=";
-    std::cout << std::hex << (int)current_char << std::dec;
+    std::cout << std::hex << (int)current_char << std::dec << "/"
+              << current_char;
     std::cout << " ptr=" << input_ptr << "\n";
     stateTick();
   }
@@ -64,7 +66,7 @@ void Tokenizer::stateTick() {
       return;
     }
     if (isalpha(current_char)) {
-      emit(START_TAG, "");
+      create(START_TAG, "");
       input_ptr--; // reconsume
       current_state = TAG_NAME;
       return;
@@ -73,7 +75,7 @@ void Tokenizer::stateTick() {
       // "This is an unexpected-question-mark-instead-of-tag-name parse error.
       // Create a comment token whose data is the empty string. Reconsume in the
       // bogus comment state."
-      emit(COMMENT, "");
+      create(COMMENT, "");
       input_ptr--; // reconsume
       current_state = BOGUS_COMMENT;
       return;
@@ -102,7 +104,7 @@ void Tokenizer::stateTick() {
     }
     if (strncasecmp(&input[input_ptr], "DOCTYPE", 7) == 0) {
       consume(7);
-      current_state = DOCTYPE;
+      current_state = DOCTYPE_STATE;
       return;
     }
     if (strncmp(&input[input_ptr], "[CDATA[", 7) == 0) {
@@ -110,15 +112,118 @@ void Tokenizer::stateTick() {
       // FIXME: handle CDATA properly
       // "this is a cdata-in-html-content parse error. Create a comment token
       // whose data is the "[CDATA[" string. Switch to the bogus comment state."
-      emit(COMMENT, "[CDATA[");
+      create(COMMENT, "[CDATA[");
       current_state = BOGUS_COMMENT;
       return;
     }
     // "This is an incorrectly-opened-comment parse error. Create a comment
     // token whose data is the empty string. Switch to the bogus comment state
     // (don't consume anything in the current state)."
-    emit(COMMENT, "");
+    create(COMMENT, "");
     current_state = BOGUS_COMMENT;
+    break;
+  }
+
+  // https://html.spec.whatwg.org/multipage/parsing.html#doctype-state
+  case DOCTYPE_STATE: {
+    consume();
+    if (isspace(current_char)) {
+      current_state = BEFORE_DOCTYPE_NAME;
+      return;
+    }
+    if (current_char == '>') {
+      input_ptr--; // reconsume
+      current_state = BEFORE_DOCTYPE_NAME;
+      return;
+    }
+    if (current_char == EOF) {
+      // "This is an eof-in-doctype parse error. Create a new DOCTYPE token. Set
+      // its force-quirks flag to on. Emit the current token. Emit an
+      // end-of-file token."
+      emit(DOCTYPE_TOKEN, ""); // FIXME: force-quirks flag
+      emit(END_OF_FILE, "");
+      return;
+    }
+    // "This is a missing-whitespace-before-doctype-name parse error. Reconsume
+    // in the before DOCTYPE name state."
+    input_ptr--;
+    current_state = BEFORE_DOCTYPE_NAME;
+    break;
+  }
+
+  // https://html.spec.whatwg.org/multipage/parsing.html#before-doctype-name-state
+  case BEFORE_DOCTYPE_NAME: {
+    consume();
+    if (isspace(current_char)) {
+      return; // ignore
+    }
+    if (isupper(current_char)) {
+      create(DOCTYPE_TOKEN, current_char + 0x20);
+      current_state = DOCTYPE_NAME;
+      return;
+    }
+    if (current_char == 0) {
+      // "This is an unexpected-null-character parse error. Create a new DOCTYPE
+      // token. Set the token's name to a U+FFFD REPLACEMENT CHARACTER
+      // character. Switch to the DOCTYPE name state."
+      // FIXME: proper unicode support
+      create(DOCTYPE_TOKEN, "\xff\xfd");
+      current_state = DOCTYPE_NAME;
+      return;
+    }
+    if (current_char == '>') {
+      // "This is a missing-doctype-name parse error. Create a new DOCTYPE
+      // token. Set its force-quirks flag to on. Switch to the data state. Emit
+      // the current token."
+      // FIXME: force-quirks flag
+      emit(DOCTYPE_TOKEN, "");
+      current_state = DATA;
+      return;
+    }
+    if (current_char == EOF) {
+      // "This is an eof-in-doctype parse error. Create a new DOCTYPE token. Set
+      // its force-quirks flag to on. Emit the current token. Emit an
+      // end-of-file token."
+      // FIXME: force-quirks flag
+      emit(DOCTYPE_TOKEN, "");
+      emit(END_OF_FILE, "");
+      return;
+    }
+
+    create(DOCTYPE_TOKEN, current_char);
+    current_state = DOCTYPE_NAME;
+    break;
+  }
+
+  // https://html.spec.whatwg.org/multipage/parsing.html#doctype-name-state
+  case DOCTYPE_NAME: {
+    consume();
+    if (isspace(current_char)) {
+      current_state = AFTER_DOCTYPE_NAME;
+      return;
+    }
+    if (current_char == '>') {
+      current_state = DATA;
+      emitCurrent();
+    }
+    if (isupper(current_char)) {
+      current_token.data += current_char + 0x20;
+    }
+    if (current_char == 0) {
+      // "This is an unexpected-null-character parse error. Append a U+FFFD
+      // REPLACEMENT CHARACTER character to the current DOCTYPE token's name."
+      // FIXME: proper unicode
+      current_token.data += "\xff\xfd";
+    }
+    if (current_char == EOF) {
+      // "This is an eof-in-doctype parse error. Set the current DOCTYPE token's
+      // force-quirks flag to on. Emit the current DOCTYPE token. Emit an
+      // end-of-file token."
+      // FIXME: force-quirks flag
+      emitCurrent();
+      emit(END_OF_FILE, "");
+    }
+    current_token.data += current_char;
     break;
   }
 
@@ -138,6 +243,14 @@ void Tokenizer::emit(TokenType type, const std::string data) {
   std::cout << "[LibHTML] emitting token " << type << " (data " << data
             << ")\n";
 }
+void Tokenizer::create(TokenType type, const char data) {
+  create(type, std::string(1, data));
+}
+void Tokenizer::create(TokenType type, const std::string data) {
+  current_token = Token{type, data};
+}
+void Tokenizer::emitCurrent() { emit(current_token.type, current_token.data); }
+
 void Tokenizer::consume() { current_char = input[input_ptr++]; }
 void Tokenizer::consume(size_t howMany) {
   input_ptr += howMany;
