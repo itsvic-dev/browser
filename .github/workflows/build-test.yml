@@ -12,7 +12,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
       - name: Install dependencies
-        run: pip install meson ninja
+        run: |
+          pip install meson ninja
+          apt install libcurl4-gnutls-dev
       - name: Configure build
         run: meson setup builddir --prefix $PWD/out
       - name: Build
@@ -32,7 +34,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
       - name: Install dependencies
-        run: pip install meson ninja
+        run: |
+          pip install meson ninja
+          apt install libcurl4-gnutls-dev
       - name: Configure build
         run: meson setup builddir
       - name: Test
