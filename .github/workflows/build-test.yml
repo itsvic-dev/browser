@@ -1,8 +1,12 @@
 name: Build and Test
 
 on:
-  - push
-  - pull_request
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - "**/coverage.svg"
+  pull_request:
 
 jobs:
   build:
@@ -38,7 +42,7 @@ jobs:
         run: |
           pip install meson ninja
           sudo apt update
-          sudo apt install libcurl4-gnutls-dev
+          sudo apt install libcurl4-gnutls-dev lcov
       - name: Configure build
         run: meson setup builddir
       - name: Test
@@ -48,3 +52,8 @@ jobs:
         with:
           name: Meson test log
           path: builddir/meson-logs/testlog.txt
+      - name: Generate coverage
+        run: meson compile coverage -C builddir
+      - uses: GoogleCloudPlatform/github-badge-lcov@v1.0.1
+        with:
+          file: builddir/meson-logs/coverage.info
