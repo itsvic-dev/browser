@@ -45,6 +45,8 @@ public:
   */
   size_t processed();
 
+  std::vector<std::shared_ptr<Token>> tokens = {};
+
 private:
   void stateTick();
   void consume();
@@ -62,7 +64,6 @@ private:
   char current_char = 0;
 
   std::shared_ptr<Token> current_token;
-  std::vector<std::shared_ptr<Token>> tokens = {};
 };
 
 } // namespace LibHTML
