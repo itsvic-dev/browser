@@ -54,6 +54,6 @@ jobs:
           path: builddir/meson-logs/testlog.txt
       - name: Generate coverage
         run: meson compile coverage -C builddir
-      - uses: GoogleCloudPlatform/github-badge-lcov@v1.0.1
+      - uses: GoogleCloudPlatform/lcov-coverage-badge@v1.0.1
         with:
           file: builddir/meson-logs/coverage.info
