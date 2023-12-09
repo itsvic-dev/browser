@@ -1,5 +1,6 @@
 #include "libhtml.h"
 #include <cassert>
+#include <cstdio>
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <iostream>
@@ -24,6 +25,9 @@ int main() {
   if (success != CURLE_OK) {
     std::cout << "failed to fetch: " << curl_easy_strerror(success) << "\n";
   }
+  // let the tokenizer know we're EOF'd now
+  const char eof[] = {EOF};
+  tokenizer.process(eof, 1);
 
   return 0;
 }

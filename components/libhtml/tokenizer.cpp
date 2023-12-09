@@ -7,6 +7,9 @@
 #include <string.h>
 #include <strings.h>
 
+// helper macros
+#define IF_IS(x) if (current_char == (x))
+
 namespace LibHTML {
 
 void Tokenizer::process(const char *input, size_t size) {
@@ -92,6 +95,97 @@ void Tokenizer::stateTick() {
     emit(CHARACTER, '>');
     input_ptr--; // reconsume
     current_state = DATA;
+    break;
+  }
+
+  // https://html.spec.whatwg.org/multipage/parsing.html#tag-name-state
+  case TAG_NAME: {
+    consume();
+    if (isspace(current_char)) {
+      current_state = BEFORE_ATTRIBUTE_NAME;
+      return;
+    }
+    if (current_char == '/') {
+      current_state = SELF_CLOSING_START_TAG;
+      return;
+    }
+    if (current_char == '>') {
+      current_state = DATA;
+      emitCurrent();
+      return;
+    }
+    if (isupper(current_char)) {
+      current_token.data += current_char + 0x20;
+      return;
+    }
+    if (current_char == 0) {
+      // "This is an unexpected-null-character parse error. Append a U+FFFD
+      // REPLACEMENT CHARACTER character to the current tag token's tag name."
+      // FIXME: proper unicode
+      current_token.data += "\xff\xfd";
+      return;
+    }
+    if (current_char == EOF) {
+      // "This is an eof-in-tag parse error. Emit an end-of-file token."
+      emit(END_OF_FILE, "");
+      return;
+    }
+    current_token.data += current_char;
+    break;
+  }
+
+  // https://html.spec.whatwg.org/multipage/parsing.html#end-tag-open-state
+  case END_TAG_OPEN: {
+    consume();
+    if (isalpha(current_char)) {
+      create(END_TAG, "");
+      input_ptr--;
+      current_state = TAG_NAME;
+      return;
+    }
+    IF_IS('>') {
+      // "This is a missing-end-tag-name parse error. Switch to the data state."
+      current_state = DATA;
+      return;
+    }
+    IF_IS(EOF) {
+      // "This is an eof-before-tag-name parse error. Emit a U+003C LESS-THAN
+      // SIGN character token, a U+002F SOLIDUS character token and an
+      // end-of-file token."
+      emit(CHARACTER, '<');
+      emit(CHARACTER, '/');
+      emit(END_OF_FILE, "");
+      return;
+    }
+    // "This is an invalid-first-character-of-tag-name parse error. Create a
+    // comment token whose data is the empty string. Reconsume in the bogus
+    // comment state."
+    create(COMMENT, "");
+    current_state = BOGUS_COMMENT;
+    break;
+  }
+
+  // https://html.spec.whatwg.org/multipage/parsing.html#before-attribute-name-state
+  case BEFORE_ATTRIBUTE_NAME: {
+    consume();
+    if (isspace(current_char)) {
+      return; // ignore
+    }
+    if (current_char == '/' || current_char == '>' || current_char == EOF) {
+      input_ptr--;
+      current_state = AFTER_ATTRIBUTE_NAME;
+      return;
+    }
+    IF_IS('=') {
+      // TODO: start a new attribute in the tag token
+      // i should make a Tag class with derivatives (such as TagToken or
+      // DoctypeToken)
+      current_state = ATTRIBUTE_NAME;
+      return;
+    }
+    // TODO: start a new attribute in the tag token
+    input_ptr--;
+    current_state = ATTRIBUTE_NAME;
     break;
   }
 
