@@ -2,9 +2,9 @@ project(
   'browser', 'cpp',
   version: '0.1',
   default_options: {
-    'warning_level': 3,
+    'warning_level': '3',
     'werror': true,
-    'optimization': 2,
+    'optimization': '2',
     'cpp_std': 'c++17'
   }
 )
