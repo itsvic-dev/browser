@@ -44,7 +44,7 @@ jobs:
           sudo apt update
           sudo apt install libcurl4-gnutls-dev lcov
       - name: Configure build
-        run: meson setup builddir -Db_coverage=true
+        run: meson setup builddir
       - name: Test
         run: meson test -C builddir
       - uses: actions/upload-artifact@v3
@@ -52,8 +52,3 @@ jobs:
         with:
           name: Meson test log
           path: builddir/meson-logs/testlog.txt
-      - name: Generate coverage
-        run: meson compile coverage -C builddir
-      - uses: GoogleCloudPlatform/lcov-coverage-badge@v1.0.1
-        with:
-          file: builddir/meson-logs/coverage.info
