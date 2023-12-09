@@ -1,0 +1,44 @@
+name: Build and Test
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+      - name: Install dependencies
+        run: pip install meson ninja
+      - name: Configure build
+        run: meson setup builddir --prefix $PWD/out
+      - name: Build
+        run: meson compile -C builddir
+      - name: Install
+        run: meson install -C builddir
+      - uses: actions/upload-artifact@v3
+        with:
+          name: Installed binaries
+          path: out/
+
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+      - name: Install dependencies
+        run: pip install meson ninja
+      - name: Configure build
+        run: meson setup builddir
+      - name: Test
+        run: meson test -C builddir
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: Meson test log
+          path: builddir/meson-logs/testlog.txt

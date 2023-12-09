@@ -8,6 +8,7 @@ libhtml_lib = library(
     'tokens.cpp',
     
     include_directories: libhtml_inc,
+    install: true,
 )
 
 libhtml = declare_dependency(
