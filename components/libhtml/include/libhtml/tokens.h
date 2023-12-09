@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 namespace LibHTML {
 
@@ -35,6 +36,11 @@ public:
   TokenType type();
 };
 
+typedef struct {
+  std::string name;
+  std::string value;
+} Attribute;
+
 class TagToken : public Token {
 public:
   TagToken(TokenType type);
@@ -43,6 +49,9 @@ public:
   std::string name();
   void appendName(char c);
   void appendName(const std::string name);
+
+  bool selfClosing = false;
+  std::vector<Attribute> attributes = {};
 
 private:
   std::string m_name = "";
