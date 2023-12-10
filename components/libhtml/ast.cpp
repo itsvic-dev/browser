@@ -105,7 +105,7 @@ void ASTParser::parseTick() {
         return;
       }
     }
-    auto htmlElement = createElement(document, L"html", NS_HTML);
+    auto htmlElement = createElement(document, NS_HTML, L"html");
     openElementStack.push_back(htmlElement);
     document->appendChild(htmlElement);
     insertionMode = BEFORE_HEAD;
@@ -158,9 +158,8 @@ void ASTParser::parseTick() {
       }
     }
     auto head = std::static_pointer_cast<LibDOM::HTMLHeadElement>(
-        createElement(document, L"head", NS_HTML));
-    openElementStack.back()->appendChild(head);
-    openElementStack.push_back(head);
+        createElement(document, NS_HTML, L"head"));
+    insertElement(head);
     headElementPtr = head;
     insertionMode = IN_HEAD;
     tokenPtr--;
@@ -187,6 +186,64 @@ void ASTParser::parseTick() {
       // Parse error. Ignore the token.
       return;
     }
+    if (token->type() == START_TAG) {
+      auto tagToken = std::static_pointer_cast<TagToken>(token);
+      if (tagToken->name() == L"html") {
+        // FIXME: Process the token using the rules for the "in body" insertion
+        // mode.
+        return;
+      }
+      if (tagToken->name() == L"base" || tagToken->name() == L"basefont" ||
+          tagToken->name() == L"bgsound" || tagToken->name() == L"link") {
+        auto elem = createElementForToken(tagToken);
+        insertElement(elem);
+        openElementStack.pop_back();
+        // FIXME: Acknowledge the token's self-closing flag, if it is set.
+        // isnt this acknowledged by the stack pop?
+        return;
+      }
+      // FIXME: handling of meta
+      if (tagToken->name() == L"meta") {
+        return;
+      }
+      // FIXME: handling of title
+      if (tagToken->name() == L"title") {
+        return;
+      }
+      // FIXME: special handling of noscript if scripting is enabled
+      // FIXME: handling of noframes, style
+      if (tagToken->name() == L"noframes" || tagToken->name() == L"style") {
+        return;
+      }
+      if (tagToken->name() == L"noscript") { // FIXME: scripting flag
+        insertElement(createElementForToken(tagToken));
+        insertionMode = IN_HEAD_NOSCRIPT;
+      }
+      // FIXME: handling of script
+      if (tagToken->name() == L"script") {
+        return;
+      }
+      if (tagToken->name() == L"head") {
+        // Parse error. Ignore the token.
+        return;
+      }
+      // FIXME: templates
+    }
+    if (token->type() == END_TAG) {
+      auto tagToken = std::static_pointer_cast<TagToken>(token);
+      if (tagToken->name() == L"head") {
+        openElementStack.pop_back();
+        insertionMode = AFTER_HEAD;
+        return;
+      } else if (tagToken->name() != L"body" || tagToken->name() != L"html" ||
+                 tagToken->name() != L"br") {
+        // Parse error. Ignore the token.
+        return;
+      }
+    }
+    openElementStack.pop_back();
+    insertionMode = AFTER_HEAD;
+    tokenPtr--;
     break;
   }
 
@@ -209,7 +266,11 @@ ASTParser::createElement(std::shared_ptr<LibDOM::Document> document,
     result = std::make_shared<LibDOM::HTMLHeadElement>();
   }
 
-  assert(result != nullptr);
+  if (result == nullptr) {
+    std::cerr << "[LibHTML] Don't know how to deal with tag ";
+    std::wcerr << localName << L". things are about to get real funny\n";
+    return nullptr;
+  }
 
   result->ownerDocument = document;
   result->namespaceURI = ns;
@@ -250,6 +311,11 @@ void ASTParser::insertCharacter(wchar_t c) {
     textNode->ownerDocument = document;
     openElementStack.back()->appendChild(textNode);
   }
+}
+
+void ASTParser::insertElement(std::shared_ptr<LibDOM::Element> elem) {
+  openElementStack.back()->appendChild(elem);
+  openElementStack.push_back(elem);
 }
 
 void ASTParser::consume() { token = tokens[tokenPtr++]; }

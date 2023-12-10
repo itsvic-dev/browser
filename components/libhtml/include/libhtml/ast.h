@@ -49,12 +49,13 @@ private:
   void consume();
 
   std::shared_ptr<LibDOM::HTMLElement>
-  createElement(std::shared_ptr<LibDOM::Document> document,
-                std::wstring localName, std::wstring ns,
-                std::wstring prefix = L"");
+  createElement(std::shared_ptr<LibDOM::Document> document, std::wstring ns,
+                std::wstring localName, std::wstring prefix = L"");
 
   std::shared_ptr<LibDOM::HTMLElement>
   createElementForToken(std::shared_ptr<TagToken> token);
+
+  void insertElement(std::shared_ptr<LibDOM::Element> elem);
 
   void insertCharacter(wchar_t c);
 
