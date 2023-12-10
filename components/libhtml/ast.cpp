@@ -2,10 +2,14 @@
 #include "libdom.h"
 #include "libdom/comment.h"
 #include "libdom/element.h"
+#include "libdom/node.h"
+#include "libdom/text.h"
 #include "libhtml/tokens.h"
+#include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <memory>
+#include <string>
 
 namespace LibHTML {
 
@@ -136,8 +140,10 @@ void ASTParser::parseTick() {
         return;
       }
       if (tagToken->name() == L"head") {
-        auto head = createElementForToken(tagToken);
+        auto head = std::static_pointer_cast<LibDOM::HTMLHeadElement>(
+            createElementForToken(tagToken));
         openElementStack.back()->appendChild(head);
+        openElementStack.push_back(head);
         headElementPtr = head;
         insertionMode = IN_HEAD;
         return;
@@ -151,11 +157,36 @@ void ASTParser::parseTick() {
         return;
       }
     }
-    auto head = createElement(document, L"head", NS_HTML);
+    auto head = std::static_pointer_cast<LibDOM::HTMLHeadElement>(
+        createElement(document, L"head", NS_HTML));
     openElementStack.back()->appendChild(head);
+    openElementStack.push_back(head);
     headElementPtr = head;
     insertionMode = IN_HEAD;
     tokenPtr--;
+    break;
+  }
+
+  // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhead
+  case IN_HEAD: {
+    if (token->type() == CHARACTER) {
+      auto charToken = std::static_pointer_cast<CharacterToken>(token);
+      if (isspace(charToken->character())) {
+        insertCharacter(charToken->character()); // weird but ok
+        return;
+      }
+    }
+    if (token->type() == COMMENT) {
+      auto commToken = std::static_pointer_cast<CommentToken>(token);
+      auto comment = std::make_shared<LibDOM::Comment>(commToken->data());
+      comment->ownerDocument = document;
+      openElementStack.back()->appendChild(comment);
+      return;
+    }
+    if (token->type() == DOCTYPE_TOKEN) {
+      // Parse error. Ignore the token.
+      return;
+    }
     break;
   }
 
@@ -196,6 +227,29 @@ ASTParser::createElementForToken(std::shared_ptr<TagToken> token) {
   auto element = createElement(document, NS_HTML, localName);
   // FIXME: attributes
   return element;
+}
+
+void ASTParser::insertCharacter(wchar_t c) {
+  auto node = openElementStack.back();
+  std::shared_ptr<LibDOM::Text> textNode = nullptr;
+
+  // try to find Text in current node
+  auto it = std::find_if(node->childNodes.begin(), node->childNodes.end(),
+                         [](std::shared_ptr<LibDOM::Node> node) {
+                           return node->nodeType == LibDOM::Node::TEXT_NODE;
+                         });
+
+  if (it != node->childNodes.end()) {
+    textNode = std::static_pointer_cast<LibDOM::Text>(*it);
+  }
+
+  if (textNode) {
+    textNode->data += c;
+  } else {
+    textNode = std::make_shared<LibDOM::Text>(std::wstring(1, c));
+    textNode->ownerDocument = document;
+    openElementStack.back()->appendChild(textNode);
+  }
 }
 
 void ASTParser::consume() { token = tokens[tokenPtr++]; }

@@ -5,9 +5,9 @@
 
 namespace LibDOM {
 
-class Comment : public CharacterData {
+class Text : public CharacterData {
 public:
-  Comment(DOMString data = L"");
+  Text(DOMString data = L"");
 };
 
 } // namespace LibDOM

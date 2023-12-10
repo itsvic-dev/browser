@@ -21,6 +21,8 @@ public:
 
 class Element : public Node {
 public:
+  Element();
+
   DOMString namespaceURI;
   DOMString prefix;
   DOMString localName;

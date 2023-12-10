@@ -3,9 +3,6 @@
 
 namespace LibDOM {
 
-DOMString CharacterData::data() { return L"undefined"; }
-
-Comment::Comment(DOMString data) : m_data(data) {}
-DOMString Comment::data() { return m_data; };
+Comment::Comment(DOMString data) : CharacterData() { this->data = data; }
 
 } // namespace LibDOM

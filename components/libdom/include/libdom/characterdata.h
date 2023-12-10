@@ -1,13 +1,12 @@
 #pragma once
-#include "characterdata.h"
 #include "domstring.h"
 #include "node.h"
 
 namespace LibDOM {
 
-class Comment : public CharacterData {
+class CharacterData : public Node {
 public:
-  Comment(DOMString data = L"");
+  DOMString data;
 };
 
 } // namespace LibDOM

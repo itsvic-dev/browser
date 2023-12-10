@@ -22,12 +22,12 @@ public:
 
 class CharacterToken : public Token {
 public:
-  CharacterToken(char c);
+  CharacterToken(wchar_t c);
   TokenType type();
   char character();
 
 private:
-  char c;
+  wchar_t c;
 };
 
 class EOFToken : public Token {

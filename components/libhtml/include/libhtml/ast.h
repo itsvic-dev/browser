@@ -56,6 +56,8 @@ private:
   std::shared_ptr<LibDOM::HTMLElement>
   createElementForToken(std::shared_ptr<TagToken> token);
 
+  void insertCharacter(wchar_t c);
+
   size_t tokenPtr = 0;
   std::shared_ptr<Token> token = nullptr;
   std::vector<std::shared_ptr<Token>> tokens = {};
@@ -63,9 +65,9 @@ private:
   ParserMode insertionMode = INITIAL;
   bool fosterParenting = false;
 
-  std::vector<std::shared_ptr<LibDOM::Element>> openElementStack;
+  std::vector<std::shared_ptr<LibDOM::Node>> openElementStack;
 
-  std::shared_ptr<LibDOM::Element> headElementPtr = nullptr;
+  std::shared_ptr<LibDOM::HTMLHeadElement> headElementPtr = nullptr;
   std::shared_ptr<LibDOM::Element> formElementPtr = nullptr;
 };
 

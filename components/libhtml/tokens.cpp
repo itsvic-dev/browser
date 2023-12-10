@@ -5,7 +5,7 @@ namespace LibHTML {
 
 TokenType Token::type() { return UNDEFINED_TOKEN; }
 
-CharacterToken::CharacterToken(char c) : c(c) {}
+CharacterToken::CharacterToken(wchar_t c) : c(c) {}
 TokenType CharacterToken::type() { return CHARACTER; }
 char CharacterToken::character() { return c; }
 

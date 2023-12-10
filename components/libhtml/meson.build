@@ -29,12 +29,17 @@ libhtml_tokenize_test = executable(
     dependencies: [libhtml]
 )
 
-test('tokenize - example.com', libhtml_tokenize_test, workdir: meson.current_source_dir(),
-    args: ['test/example.com.html'])
-test('tokenize - fumonet-template', libhtml_tokenize_test, workdir: meson.current_source_dir(),
-    args: ['test/fumonet-template.html'])
-# currently fails because of HTML entities
-# test('tokenize - fumonet', libhtml_tokenize_test, workdir: meson.current_source_dir(),
-#     args: ['test/fumonet.html'])
-test('tokenize - nsg650', libhtml_tokenize_test, workdir: meson.current_source_dir(),
-    args: ['test/nsg650.html'])
+test_inputs = [
+    'example.com.html',
+    'fumonet-template.html',
+    # 'fumonet.html',
+    'nsg650.html',
+]
+
+foreach input : test_inputs
+    test(
+        f'tokenize - @input@', libhtml_tokenize_test,
+        workdir: meson.current_source_dir(),
+        args: [f'test/@input@'],
+    )
+endforeach

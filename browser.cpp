@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
   tokenizer.process(eof, 1);
   parser.parse(tokenizer.tokens);
 
-  std::cout << "\n\nDOM tree dump:\n";
+  std::cout << "\nDOM tree dump:\n";
   walkTree(parser.document);
 
   return 0;
