@@ -1,6 +1,6 @@
 #pragma once
-#include "libhtml/dom.h"
-#include "libhtml/dom/element.h"
+#include "libdom.h"
+#include "libdom/element.h"
 #include "libhtml/tokens.h"
 #include <cstddef>
 #include <memory>
@@ -42,17 +42,18 @@ public:
   ASTParser();
 
   void parse(std::vector<std::shared_ptr<Token>> tokens);
-  std::shared_ptr<DOM::Document> document;
+  std::shared_ptr<LibDOM::Document> document;
 
 private:
   void parseTick();
   void consume();
 
-  std::shared_ptr<DOM::HTMLElement>
-  createElement(std::shared_ptr<DOM::Document> document, std::wstring localName,
-                std::wstring ns, std::wstring prefix = L"");
+  std::shared_ptr<LibDOM::HTMLElement>
+  createElement(std::shared_ptr<LibDOM::Document> document,
+                std::wstring localName, std::wstring ns,
+                std::wstring prefix = L"");
 
-  std::shared_ptr<DOM::HTMLElement>
+  std::shared_ptr<LibDOM::HTMLElement>
   createElementForToken(std::shared_ptr<TagToken> token);
 
   size_t tokenPtr = 0;
@@ -62,10 +63,10 @@ private:
   ParserMode insertionMode = INITIAL;
   bool fosterParenting = false;
 
-  std::vector<std::shared_ptr<DOM::Element>> openElementStack;
+  std::vector<std::shared_ptr<LibDOM::Element>> openElementStack;
 
-  std::shared_ptr<DOM::Element> headElementPtr = nullptr;
-  std::shared_ptr<DOM::Element> formElementPtr = nullptr;
+  std::shared_ptr<LibDOM::Element> headElementPtr = nullptr;
+  std::shared_ptr<LibDOM::Element> formElementPtr = nullptr;
 };
 
 } // namespace LibHTML

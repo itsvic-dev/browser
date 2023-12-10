@@ -1,9 +1,9 @@
-#include "libhtml/dom/node.h"
+#include "libdom/node.h"
 #include <cxxabi.h>
 #include <iostream>
 #include <memory>
 
-namespace LibHTML::DOM {
+namespace LibDOM {
 
 void Node::appendChild(std::shared_ptr<Node> node) {
   std::cout << "(dom) appending " << node << " to " << this << "\n";
@@ -22,4 +22,4 @@ const std::string Node::_name() {
   return (status == 0) ? res.get() : name;
 };
 
-} // namespace LibHTML::DOM
+} // namespace LibDOM

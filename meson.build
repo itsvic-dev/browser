@@ -17,6 +17,7 @@ libcurl = dependency(
   },
 )
 
+subdir('components/libdom')
 subdir('components/libhtml')
 
 exe = executable(

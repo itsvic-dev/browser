@@ -6,17 +6,20 @@ libhtml_lib = library(
     'ast.cpp',
     'tokenizer.cpp',
     'tokens.cpp',
-
-    'dom/comment.cpp',
-    'dom/node.cpp',
     
-    include_directories: libhtml_inc,
+    include_directories: [libhtml_inc],
     install: true,
+    dependencies: [
+        libdom,
+    ],
 )
 
 libhtml = declare_dependency(
     link_with: libhtml_lib,
     include_directories: libhtml_inc,
+    dependencies: [
+        libdom,
+    ],
 )
 
 

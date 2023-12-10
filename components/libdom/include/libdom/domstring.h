@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-namespace LibHTML::DOM {
+namespace LibDOM {
 
 typedef std::wstring DOMString;
 

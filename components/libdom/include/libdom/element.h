@@ -1,9 +1,9 @@
 #pragma once
-#include "libhtml/dom/domstring.h"
+#include "libdom/domstring.h"
 #include "node.h"
 #include <memory>
 
-namespace LibHTML::DOM {
+namespace LibDOM {
 
 class Element;
 
@@ -32,4 +32,4 @@ class HTMLElement : public Element {};
 class HTMLHtmlElement : public HTMLElement {};
 class HTMLHeadElement : public HTMLElement {};
 
-}; // namespace LibHTML::DOM
+}; // namespace LibDOM

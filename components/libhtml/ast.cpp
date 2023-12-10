@@ -1,7 +1,7 @@
 #include "libhtml/ast.h"
-#include "libhtml/dom.h"
-#include "libhtml/dom/comment.h"
-#include "libhtml/dom/element.h"
+#include "libdom.h"
+#include "libdom/comment.h"
+#include "libdom/element.h"
 #include "libhtml/tokens.h"
 #include <cassert>
 #include <iostream>
@@ -9,7 +9,7 @@
 
 namespace LibHTML {
 
-ASTParser::ASTParser() : document(std::make_shared<DOM::Document>()) {}
+ASTParser::ASTParser() : document(std::make_shared<LibDOM::Document>()) {}
 
 void ASTParser::parse(std::vector<std::shared_ptr<Token>> tokens) {
   this->tokens = tokens;
@@ -35,12 +35,13 @@ void ASTParser::parseTick() {
     }
     if (token->type() == COMMENT) {
       auto comToken = std::static_pointer_cast<CommentToken>(token);
-      document->appendChild(std::make_shared<DOM::Comment>(comToken->data()));
+      document->appendChild(
+          std::make_shared<LibDOM::Comment>(comToken->data()));
       return;
     }
     if (token->type() == DOCTYPE_TOKEN) {
       auto doctypeToken = std::static_pointer_cast<DoctypeToken>(token);
-      auto documentType = std::make_shared<DOM::DocumentType>();
+      auto documentType = std::make_shared<LibDOM::DocumentType>();
       documentType->name = doctypeToken->name();
       // FIXME: if the document is not an iframe srcdoc document, [...]
       if (!document->parserCannotChangeMode &&
@@ -73,7 +74,7 @@ void ASTParser::parseTick() {
     if (token->type() == COMMENT) {
       auto commentToken = std::static_pointer_cast<CommentToken>(token);
       document->appendChild(
-          std::make_shared<DOM::Comment>(commentToken->data()));
+          std::make_shared<LibDOM::Comment>(commentToken->data()));
       return;
     }
     if (token->type() == CHARACTER) {
@@ -118,7 +119,7 @@ void ASTParser::parseTick() {
     }
     if (token->type() == COMMENT) {
       auto commToken = std::static_pointer_cast<CommentToken>(token);
-      auto comment = std::make_shared<DOM::Comment>(commToken->data());
+      auto comment = std::make_shared<LibDOM::Comment>(commToken->data());
       comment->ownerDocument = document;
       openElementStack.back()->appendChild(comment);
       return;
@@ -164,17 +165,17 @@ void ASTParser::parseTick() {
   }
 }
 
-std::shared_ptr<DOM::HTMLElement>
-ASTParser::createElement(std::shared_ptr<DOM::Document> document,
+std::shared_ptr<LibDOM::HTMLElement>
+ASTParser::createElement(std::shared_ptr<LibDOM::Document> document,
                          std::wstring ns, std::wstring localName,
                          std::wstring prefix) {
   // FIXME: handle custom elements once we bring in JS
-  std::shared_ptr<DOM::HTMLElement> result = nullptr;
+  std::shared_ptr<LibDOM::HTMLElement> result = nullptr;
   if (localName == L"html") {
-    result = std::make_shared<DOM::HTMLHtmlElement>();
+    result = std::make_shared<LibDOM::HTMLHtmlElement>();
   }
   if (localName == L"head") {
-    result = std::make_shared<DOM::HTMLHeadElement>();
+    result = std::make_shared<LibDOM::HTMLHeadElement>();
   }
 
   assert(result != nullptr);
@@ -188,7 +189,7 @@ ASTParser::createElement(std::shared_ptr<DOM::Document> document,
   return result;
 }
 
-std::shared_ptr<DOM::HTMLElement>
+std::shared_ptr<LibDOM::HTMLElement>
 ASTParser::createElementForToken(std::shared_ptr<TagToken> token) {
   auto document = this->document;
   auto localName = token->name();

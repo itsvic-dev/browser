@@ -2,7 +2,7 @@
 #include "domstring.h"
 #include "node.h"
 
-namespace LibHTML::DOM {
+namespace LibDOM {
 
 class CharacterData : public Node {
 public:
@@ -18,4 +18,4 @@ private:
   DOMString m_data;
 };
 
-} // namespace LibHTML::DOM
+} // namespace LibDOM

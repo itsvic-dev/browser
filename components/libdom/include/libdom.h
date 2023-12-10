@@ -1,9 +1,9 @@
 #pragma once
-#include "libhtml/dom/domstring.h"
-#include "libhtml/dom/node.h"
+#include "libdom/domstring.h"
+#include "libdom/node.h"
 #include <string>
 
-namespace LibHTML::DOM {
+namespace LibDOM {
 
 class DocumentType : public Node {
 public:
@@ -18,4 +18,4 @@ public:
   bool parserCannotChangeMode = false;
 };
 
-} // namespace LibHTML::DOM
+} // namespace LibDOM

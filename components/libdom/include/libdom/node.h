@@ -1,9 +1,9 @@
 #pragma once
-#include "libhtml/dom/domstring.h"
+#include "libdom/domstring.h"
 #include <memory>
 #include <vector>
 
-namespace LibHTML::DOM {
+namespace LibDOM {
 
 class Document;
 
@@ -33,4 +33,4 @@ public:
   virtual const std::string _name();
 };
 
-} // namespace LibHTML::DOM
+} // namespace LibDOM
