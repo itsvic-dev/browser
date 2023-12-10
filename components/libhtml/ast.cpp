@@ -3,6 +3,7 @@
 #include "libhtml/dom/comment.h"
 #include "libhtml/dom/element.h"
 #include "libhtml/tokens.h"
+#include <cassert>
 #include <iostream>
 #include <memory>
 
@@ -115,6 +116,45 @@ void ASTParser::parseTick() {
         return; // ignore
       }
     }
+    if (token->type() == COMMENT) {
+      auto commToken = std::static_pointer_cast<CommentToken>(token);
+      auto comment = std::make_shared<DOM::Comment>(commToken->data());
+      comment->ownerDocument = document;
+      openElementStack.back()->appendChild(comment);
+      return;
+    }
+    if (token->type() == DOCTYPE_TOKEN) {
+      // Parse error. Ignore the token.
+      return;
+    }
+    if (token->type() == START_TAG) {
+      auto tagToken = std::static_pointer_cast<TagToken>(token);
+      if (tagToken->name() == L"html") {
+        // FIXME: Process the token using the rules for the "in body" insertion
+        // mode.
+        return;
+      }
+      if (tagToken->name() == L"head") {
+        auto head = createElementForToken(tagToken);
+        openElementStack.back()->appendChild(head);
+        headElementPtr = head;
+        insertionMode = IN_HEAD;
+        return;
+      }
+    }
+    if (token->type() == END_TAG) {
+      auto tagToken = std::static_pointer_cast<TagToken>(token);
+      if (tagToken->name() != L"head" && tagToken->name() != L"body" &&
+          tagToken->name() != L"html" && tagToken->name() != L"br") {
+        // "Parse error. Ignore the token."
+        return;
+      }
+    }
+    auto head = createElement(document, L"head", NS_HTML);
+    openElementStack.back()->appendChild(head);
+    headElementPtr = head;
+    insertionMode = IN_HEAD;
+    tokenPtr--;
     break;
   }
 
@@ -131,17 +171,19 @@ ASTParser::createElement(std::shared_ptr<DOM::Document> document,
   // FIXME: handle custom elements once we bring in JS
   std::shared_ptr<DOM::HTMLElement> result = nullptr;
   if (localName == L"html") {
-    // FIXME: HTMLHtmlElement
-    result = std::make_shared<DOM::HTMLElement>();
+    result = std::make_shared<DOM::HTMLHtmlElement>();
+  }
+  if (localName == L"head") {
+    result = std::make_shared<DOM::HTMLHeadElement>();
   }
 
-  if (result != nullptr) {
-    result->ownerDocument = document;
-    result->namespaceURI = ns;
-    result->localName = localName;
-    result->tagName = localName;
-    result->prefix = prefix;
-  }
+  assert(result != nullptr);
+
+  result->ownerDocument = document;
+  result->namespaceURI = ns;
+  result->localName = localName;
+  result->tagName = localName;
+  result->prefix = prefix;
 
   return result;
 }

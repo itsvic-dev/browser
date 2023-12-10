@@ -63,6 +63,9 @@ private:
   bool fosterParenting = false;
 
   std::vector<std::shared_ptr<DOM::Element>> openElementStack;
+
+  std::shared_ptr<DOM::Element> headElementPtr = nullptr;
+  std::shared_ptr<DOM::Element> formElementPtr = nullptr;
 };
 
 } // namespace LibHTML

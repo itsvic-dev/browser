@@ -29,4 +29,7 @@ public:
 
 class HTMLElement : public Element {};
 
+class HTMLHtmlElement : public HTMLElement {};
+class HTMLHeadElement : public HTMLElement {};
+
 }; // namespace LibHTML::DOM
