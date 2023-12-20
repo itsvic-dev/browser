@@ -54,9 +54,19 @@ private:
   void process(std::unique_ptr<Token> token);
 
   void initialInsertion(std::unique_ptr<Token> token);
+  void beforeHtml(std::unique_ptr<Token> token);
 
   /** https://html.spec.whatwg.org/multipage/parsing.html#reset-the-insertion-mode-appropriately */
   void resetInsertionModeAppropriately();
+
+  /** https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment */
+  void insertComment(std::unique_ptr<Token> token,
+                     std::shared_ptr<LibDOM::Node> position);
+
+  /** https://html.spec.whatwg.org/multipage/parsing.html#create-an-element-for-the-token */
+  std::shared_ptr<LibDOM::Node>
+  createElementForToken(TagToken *token, std::wstring ns,
+                        std::shared_ptr<LibDOM::Node> intendedParent);
 
   Tokenizer m_tokenizer;
   ParserMode m_insertionMode = INITIAL;

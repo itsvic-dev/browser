@@ -32,7 +32,7 @@ public:
 
   void appendChild(std::shared_ptr<Node> node);
 
-  virtual const std::string name();
+  virtual const std::string internalName();
 };
 
 } // namespace LibDOM
