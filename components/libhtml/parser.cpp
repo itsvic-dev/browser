@@ -2,6 +2,7 @@
 #include "libhtml/exceptions.h"
 #include <codecvt>
 #include <exception>
+#include <iostream>
 #include <locale>
 #include <string>
 
@@ -19,9 +20,14 @@ void Parser::parse(const char *text, size_t textLen) {
       [this](std::unique_ptr<Token> token) { this->onEmit(std::move(token)); });
 }
 
+void Parser::parse(const wchar_t *text, size_t textLen) {
+  m_tokenizer.process(text, textLen, [this](std::unique_ptr<Token> token) {
+    this->onEmit(std::move(token));
+  });
+}
+
 void Parser::onEmit(std::unique_ptr<Token> token) {
-  (void)token;
-  throw StringException("TODO: Parser::onEmit");
+  std::cout << "type=" << token->type() << "\n";
 }
 
 } // namespace LibHTML

@@ -45,6 +45,7 @@ public:
   Parser();
 
   void parse(const char *text, size_t textLen);
+  void parse(const wchar_t *text, size_t textLen);
 
 private:
   void onEmit(std::unique_ptr<Token> token);

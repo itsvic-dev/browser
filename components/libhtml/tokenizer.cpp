@@ -30,6 +30,7 @@ void Tokenizer::process(const wchar_t *input, size_t size,
   m_onEmit = onEmit;
 
   while (m_inputPtr < m_inputSize) {
+    std::cout << "state=" << currentState << " ptr=" << m_inputPtr << "\n";
     stateTick();
   }
 }
@@ -428,10 +429,12 @@ void Tokenizer::stateTick() {
     break;
   }
 
+  // https://html.spec.whatwg.org/multipage/parsing.html#self-closing-start-tag-state
   case SELF_CLOSING_START_TAG: {
     consume();
     IF_IS('>') {
       assert(m_currentToken->type() == START_TAG);
+      currentState = DATA;
       auto token = CONVERT_TO(TagToken, m_currentToken);
       token->selfClosing = true;
       MOVE_TOKEN(token);
@@ -563,12 +566,14 @@ void Tokenizer::stateTick() {
     if (m_currentChar == '>') {
       currentState = DATA;
       emitCurrent();
+      return;
     }
     if (isupper(m_currentChar)) {
       assert(m_currentToken->type() == DOCTYPE_TOKEN);
       auto token = CONVERT_TO(DoctypeToken, m_currentToken);
       token->appendName(m_currentChar + 0x20);
       MOVE_TOKEN(token);
+      return;
     }
     if (m_currentChar == 0) {
       // "This is an unexpected-null-character parse error. Append a U+FFFD
@@ -577,6 +582,7 @@ void Tokenizer::stateTick() {
       auto token = CONVERT_TO(DoctypeToken, m_currentToken);
       token->appendName(L"\ufffd");
       MOVE_TOKEN(token);
+      return;
     }
     if (m_currentChar == EOF) {
       // "This is an eof-in-doctype parse error. Set the current DOCTYPE token's
@@ -588,6 +594,7 @@ void Tokenizer::stateTick() {
       MOVE_TOKEN(token);
       emitCurrent();
       emit(std::make_unique<EOFToken>());
+      return;
     }
     assert(m_currentToken->type() == DOCTYPE_TOKEN);
     auto token = CONVERT_TO(DoctypeToken, m_currentToken);

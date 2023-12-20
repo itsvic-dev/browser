@@ -38,10 +38,10 @@ int main(int argc, char **argv) {
     std::cout << "failed to fetch: " << curl_easy_strerror(success) << "\n";
   }
   // let the tokenizer know we're EOF'd now
-  const char eof[] = {EOF};
+  const wchar_t eof[] = {EOF};
   parser.parse(eof, 1);
 
-  std::cout << "\nDOM tree dump:\n";
+  // std::cout << "\nDOM tree dump:\n";
   // walkTree(parser.document);
 
   return 0;
