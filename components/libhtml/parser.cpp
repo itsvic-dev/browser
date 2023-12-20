@@ -18,6 +18,9 @@
 
 #define CURRENT_NODE (m_nodeStack.back())
 
+#define INSERT_HTML_ELEMENT(token)                                             \
+  insertForeignElement((token).get(), NS_HTML, false)
+
 namespace LibHTML {
 
 Parser::Parser() : document(std::make_shared<LibDOM::Document>()) {}
@@ -122,6 +125,59 @@ anythingElse:
   REPROCESS;
 }
 
+/** https://html.spec.whatwg.org/multipage/parsing.html#the-before-head-insertion-mode */
+void Parser::beforeHead(std::unique_ptr<Token> token) {
+  if (token->type() == CHARACTER) {
+    auto charToken = CONVERT_TO(CharacterToken, token);
+    if (isspace(charToken->character())) {
+      return;
+    }
+    token = std::move(charToken);
+  }
+
+  if (token->type() == COMMENT) {
+    insertComment(std::move(token), document);
+    return;
+  }
+
+  if (token->type() == DOCTYPE_TOKEN)
+    return;
+
+  if (token->type() == START_TAG) {
+    auto tagToken = CONVERT_TO(TagToken, token);
+    if (tagToken->name() == L"html") {
+      throw StringException("TODO: Process the token using the rules for the "
+                            "\"in body\" insertion mode.");
+    }
+
+    if (tagToken->name() == L"head") {
+      auto elem = INSERT_HTML_ELEMENT(tagToken);
+      m_headElementPointer = elem;
+      m_insertionMode = IN_HEAD;
+      return;
+    }
+    token = std::move(tagToken);
+  }
+
+  if (token->type() == END_TAG) {
+    auto tagToken = CONVERT_TO(TagToken, token);
+    if (tagToken->name() == L"html" || tagToken->name() == L"head" ||
+        tagToken->name() == L"body" || tagToken->name() == L"br") {
+      token = std::move(tagToken);
+      goto anythingElse;
+    }
+    return;
+  }
+
+anythingElse:
+  auto tagToken = std::make_shared<TagToken>(START_TAG);
+  tagToken->appendName(L"head");
+  auto elem = INSERT_HTML_ELEMENT(tagToken);
+  m_headElementPointer = elem;
+  m_insertionMode = IN_HEAD;
+  REPROCESS;
+}
+
 #define MODE(mode, func)                                                       \
   case mode:                                                                   \
     func(std::move(token));                                                    \
@@ -133,6 +189,9 @@ void Parser::process(std::unique_ptr<Token> token) {
   switch (m_insertionMode) {
     MODE(INITIAL, initialInsertion)
     MODE(BEFORE_HTML, beforeHtml)
+    MODE(BEFORE_HEAD, beforeHead)
+  case 3:
+    break;
   default:
     std::clog << "unknown insertion mode encountered: " << m_insertionMode
               << "\n";
@@ -156,6 +215,33 @@ void Parser::insertComment(std::unique_ptr<Token> token,
   throw StringException("TODO: Parser::insertComment");
 }
 
+#define LOCAL_DEF(ln, type)                                                    \
+  if (localName == ln)                                                         \
+    elem = std::make_shared<type>();
+
+/** https://dom.spec.whatwg.org/#concept-create-element */
+std::shared_ptr<LibDOM::HTMLElement>
+Parser::createElement(std::wstring localName, std::wstring ns,
+                      std::wstring prefix) {
+  std::shared_ptr<LibDOM::HTMLElement> elem = nullptr;
+
+  LOCAL_DEF(L"html", LibDOM::HTMLHtmlElement)
+  LOCAL_DEF(L"head", LibDOM::HTMLHeadElement)
+  if (elem == nullptr) {
+    std::wclog << L"WARNING: using default HTMLElement for localName "
+               << localName << L"\n";
+    elem = std::make_shared<LibDOM::HTMLElement>();
+  }
+
+  elem->namespaceURI = ns;
+  elem->prefix = prefix;
+  elem->localName = localName;
+  elem->ownerDocument = document;
+  return elem;
+}
+
+#undef LOCAL_DEF
+
 /** https://html.spec.whatwg.org/multipage/parsing.html#create-an-element-for-the-token */
 std::shared_ptr<LibDOM::Node>
 Parser::createElementForToken(TagToken *token, std::wstring ns,
@@ -171,27 +257,14 @@ Parser::createElementForToken(TagToken *token, std::wstring ns,
   return elem;
 }
 
-#define LOCAL_DEF(ln, type)                                                    \
-  if (localName == ln)                                                         \
-    elem = std::make_shared<type>();
-
-/** https://dom.spec.whatwg.org/#concept-create-element */
-std::shared_ptr<LibDOM::HTMLElement>
-Parser::createElement(std::wstring localName, std::wstring ns,
-                      std::wstring prefix) {
-  std::shared_ptr<LibDOM::HTMLElement> elem = nullptr;
-
-  LOCAL_DEF(L"html", LibDOM::HTMLHtmlElement)
-  else {
-    std::wclog << L"WARNING: using default HTMLElement for localName "
-               << localName << L"\n";
-    elem = std::make_shared<LibDOM::HTMLElement>();
-  }
-
-  elem->namespaceURI = ns;
-  elem->prefix = prefix;
-  elem->localName = localName;
-  elem->ownerDocument = document;
+std::shared_ptr<LibDOM::Node>
+Parser::insertForeignElement(TagToken *token, std::wstring ns,
+                             bool onlyAddToElementStack) {
+  auto insertLocation = CURRENT_NODE;
+  auto elem = createElementForToken(token, ns, insertLocation);
+  if (!onlyAddToElementStack)
+    insertLocation->appendChild(elem);
+  m_nodeStack.push_back(elem);
   return elem;
 }
 

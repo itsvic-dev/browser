@@ -74,10 +74,18 @@ private:
   createElementForToken(TagToken *token, std::wstring ns,
                         std::shared_ptr<LibDOM::Node> intendedParent);
 
+  /** https://html.spec.whatwg.org/multipage/parsing.html#insert-a-foreign-element */
+  std::shared_ptr<LibDOM::Node>
+  insertForeignElement(TagToken *token, std::wstring ns,
+                       bool onlyAddToElementStack);
+
   Tokenizer m_tokenizer;
   ParserMode m_insertionMode = INITIAL;
   /** Stack of open elements */
   std::vector<std::shared_ptr<LibDOM::Node>> m_nodeStack;
+
+  std::shared_ptr<LibDOM::Node> m_headElementPointer = nullptr;
+  std::shared_ptr<LibDOM::Node> m_formElementPointer = nullptr;
 };
 
 } // namespace LibHTML
