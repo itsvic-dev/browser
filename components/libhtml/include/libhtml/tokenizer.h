@@ -19,6 +19,12 @@ enum TokenizerState : int {
   TAG_OPEN,
   TAG_NAME,
   END_TAG_OPEN,
+  RCDATA_LESS_THAN_SIGN,
+  RCDATA_END_TAG_OPEN,
+  RCDATA_END_TAG_NAME,
+  RAWTEXT_LESS_THAN_SIGN,
+  RAWTEXT_END_TAG_OPEN,
+  RAWTEXT_END_TAG_NAME,
   BEFORE_ATTRIBUTE_NAME,
   ATTRIBUTE_NAME,
   AFTER_ATTRIBUTE_NAME,
@@ -64,6 +70,8 @@ private:
   size_t m_inputSize = 0;
   size_t m_inputPtr = 0;
   wchar_t m_currentChar = 0;
+  std::wstring m_tempBuffer = L"";
+  std::wstring m_lastStartTagEmitted = L"";
 
   std::unique_ptr<Token> m_currentToken;
 };

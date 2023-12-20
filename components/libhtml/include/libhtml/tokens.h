@@ -27,7 +27,7 @@ class CharacterToken : public Token {
 public:
   CharacterToken(wchar_t c);
   TokenType type();
-  char character();
+  wchar_t character();
 
 private:
   wchar_t m_c;

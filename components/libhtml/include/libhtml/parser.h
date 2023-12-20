@@ -57,9 +57,13 @@ private:
   void beforeHtml(std::unique_ptr<Token> token);
   void beforeHead(std::unique_ptr<Token> token);
   void inHead(std::unique_ptr<Token> token);
+  void text(std::unique_ptr<Token> token);
 
   /** https://html.spec.whatwg.org/multipage/parsing.html#reset-the-insertion-mode-appropriately */
   void resetInsertionModeAppropriately();
+
+  /** https://html.spec.whatwg.org/multipage/parsing.html#insert-a-character */
+  void insertCharacter(std::unique_ptr<CharacterToken> token);
 
   /** https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment */
   void insertComment(std::unique_ptr<Token> token,
@@ -81,10 +85,10 @@ private:
                        bool onlyAddToElementStack);
 
   /** https://html.spec.whatwg.org/multipage/parsing.html#generic-raw-text-element-parsing-algorithm */
-  void genericRawTextParse(std::unique_ptr<Token> token);
+  void genericRawTextParse(std::unique_ptr<TagToken> token);
 
   /** https://html.spec.whatwg.org/multipage/parsing.html#generic-rcdata-element-parsing-algorithm */
-  void genericRcdataParse(std::unique_ptr<Token> token);
+  void genericRcdataParse(std::unique_ptr<TagToken> token);
 
   Tokenizer m_tokenizer;
   ParserMode m_insertionMode = INITIAL;

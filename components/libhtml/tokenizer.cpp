@@ -4,6 +4,7 @@
 #include "libhtml/tokens.h"
 #include <cassert>
 #include <cctype>
+#include <cstddef>
 #include <cstdio>
 #include <cwchar>
 #include <ios>
@@ -60,6 +61,51 @@ void Tokenizer::stateTick() {
     default:
       emit(std::make_unique<CharacterToken>(m_currentChar));
     }
+    break;
+  }
+
+  // https://html.spec.whatwg.org/multipage/parsing.html#rcdata-state
+  case RCDATA: {
+    consume();
+    IF_IS('&') {
+      returnState = RCDATA;
+      currentState = CHARACTER_REFERENCE;
+      return;
+    }
+    IF_IS('<') {
+      currentState = RCDATA_LESS_THAN_SIGN;
+      return;
+    }
+    IF_IS(0) {
+      emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'\ufffd')));
+      return;
+    }
+    IF_IS(EOF) {
+      emit(std::unique_ptr<EOFToken>(new EOFToken));
+      return;
+    }
+
+    emit(std::unique_ptr<CharacterToken>(new CharacterToken(m_currentChar)));
+    break;
+  }
+
+  // https://html.spec.whatwg.org/multipage/parsing.html#rawtext-state
+  case RAWTEXT: {
+    consume();
+    IF_IS('<') {
+      currentState = RAWTEXT_LESS_THAN_SIGN;
+      return;
+    }
+    IF_IS(0) {
+      emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'\ufffd')));
+      return;
+    }
+    IF_IS(EOF) {
+      emit(std::unique_ptr<EOFToken>(new EOFToken));
+      return;
+    }
+
+    emit(std::unique_ptr<CharacterToken>(new CharacterToken(m_currentChar)));
     break;
   }
 
@@ -179,6 +225,174 @@ void Tokenizer::stateTick() {
     // comment state."
     create(std::make_unique<CommentToken>());
     currentState = BOGUS_COMMENT;
+    break;
+  }
+
+  case RCDATA_LESS_THAN_SIGN: {
+    consume();
+    IF_IS('/') {
+      m_tempBuffer = L"";
+      currentState = RCDATA_END_TAG_OPEN;
+      return;
+    }
+    emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'<')));
+    currentState = RCDATA;
+    RECONSUME;
+    break;
+  }
+
+  case RCDATA_END_TAG_OPEN: {
+    consume();
+    if (isalpha(m_currentChar)) {
+      create(std::unique_ptr<TagToken>(new TagToken(END_TAG)));
+      currentState = RCDATA_END_TAG_NAME;
+      RECONSUME;
+      return;
+    }
+    emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'<')));
+    emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'/')));
+    currentState = RCDATA;
+    RECONSUME;
+    break;
+  }
+
+  case RCDATA_END_TAG_NAME: {
+    consume();
+    auto tagToken = CONVERT_TO(TagToken, m_currentToken);
+    if (isspace(m_currentChar)) {
+      if (m_lastStartTagEmitted != L"" &&
+          tagToken->name() == m_lastStartTagEmitted) {
+        currentState = BEFORE_ATTRIBUTE_NAME;
+        create(std::move(tagToken));
+        return;
+      }
+    }
+
+    IF_IS('/') {
+      if (m_lastStartTagEmitted != L"" &&
+          tagToken->name() == m_lastStartTagEmitted) {
+        currentState = SELF_CLOSING_START_TAG;
+        create(std::move(tagToken));
+        return;
+      }
+    }
+
+    IF_IS('>') {
+      if (m_lastStartTagEmitted != L"" &&
+          tagToken->name() == m_lastStartTagEmitted) {
+        currentState = DATA;
+        emit(std::move(tagToken));
+        return;
+      }
+    }
+
+    if (isupper(m_currentChar)) {
+      tagToken->appendName(m_currentChar + 0x20);
+      m_tempBuffer += m_currentChar;
+      create(std::move(tagToken));
+      return;
+    }
+
+    if (islower(m_currentChar)) {
+      tagToken->appendName(m_currentChar);
+      m_tempBuffer += m_currentChar;
+      create(std::move(tagToken));
+      return;
+    }
+
+    emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'<')));
+    emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'/')));
+    for (size_t i = 0; i < m_tempBuffer.size(); i++) {
+      emit(
+          std::unique_ptr<CharacterToken>(new CharacterToken(m_tempBuffer[i])));
+    }
+    currentState = RCDATA;
+    RECONSUME;
+    create(std::move(tagToken));
+    break;
+  }
+
+  case RAWTEXT_LESS_THAN_SIGN: {
+    consume();
+    IF_IS('/') {
+      m_tempBuffer = L"";
+      currentState = RAWTEXT_END_TAG_OPEN;
+      return;
+    }
+    emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'<')));
+    currentState = RAWTEXT;
+    RECONSUME;
+    break;
+  }
+
+  case RAWTEXT_END_TAG_OPEN: {
+    consume();
+    if (isalpha(m_currentChar)) {
+      create(std::unique_ptr<TagToken>(new TagToken(END_TAG)));
+      currentState = RAWTEXT_END_TAG_NAME;
+      RECONSUME;
+      return;
+    }
+    emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'<')));
+    emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'/')));
+    currentState = RCDATA;
+    RECONSUME;
+    break;
+  }
+
+  case RAWTEXT_END_TAG_NAME: {
+    consume();
+    auto tagToken = CONVERT_TO(TagToken, m_currentToken);
+    if (isspace(m_currentChar)) {
+      if (m_lastStartTagEmitted != L"" &&
+          tagToken->name() == m_lastStartTagEmitted) {
+        currentState = BEFORE_ATTRIBUTE_NAME;
+        create(std::move(tagToken));
+        return;
+      }
+    }
+
+    IF_IS('/') {
+      if (m_lastStartTagEmitted != L"" &&
+          tagToken->name() == m_lastStartTagEmitted) {
+        currentState = SELF_CLOSING_START_TAG;
+        create(std::move(tagToken));
+        return;
+      }
+    }
+
+    IF_IS('>') {
+      if (m_lastStartTagEmitted != L"" &&
+          tagToken->name() == m_lastStartTagEmitted) {
+        currentState = DATA;
+        emit(std::move(tagToken));
+        return;
+      }
+    }
+
+    if (isupper(m_currentChar)) {
+      tagToken->appendName(m_currentChar + 0x20);
+      m_tempBuffer += m_currentChar;
+      create(std::move(tagToken));
+      return;
+    }
+
+    if (islower(m_currentChar)) {
+      tagToken->appendName(m_currentChar);
+      m_tempBuffer += m_currentChar;
+      create(std::move(tagToken));
+      return;
+    }
+
+    emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'<')));
+    emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'/')));
+    for (size_t i = 0; i < m_tempBuffer.size(); i++) {
+      emit(
+          std::unique_ptr<CharacterToken>(new CharacterToken(m_tempBuffer[i])));
+    }
+    currentState = RAWTEXT;
+    RECONSUME;
+    create(std::move(tagToken));
     break;
   }
 
@@ -605,14 +819,20 @@ void Tokenizer::stateTick() {
 
   // Unhandled state - missing implementation
   default: {
-    std::clog << "unknown tokenizer state encountered: " << currentState
-              << "\n";
+    std::cout << "unknown tokenizer state encountered: " << currentState
+              << std::endl;
     throw StringException("unknown tokenizer state encountered");
   }
   }
 }
 
 void Tokenizer::emit(std::unique_ptr<Token> token) {
+  if (token->type() == START_TAG) {
+    // save tag info
+    auto tagToken = CONVERT_TO(TagToken, token);
+    m_lastStartTagEmitted = tagToken->name();
+    token = std::move(tagToken);
+  }
   m_onEmit(std::move(token));
 }
 void Tokenizer::create(std::unique_ptr<Token> token) {

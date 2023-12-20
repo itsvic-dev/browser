@@ -2,9 +2,11 @@
 #include "libdom.h"
 #include "libdom/element.h"
 #include "libdom/node.h"
+#include "libdom/text.h"
 #include "libhtml/exceptions.h"
 #include "libhtml/tokenizer.h"
 #include "libhtml/tokens.h"
+#include <cassert>
 #include <codecvt>
 #include <exception>
 #include <iostream>
@@ -284,6 +286,32 @@ anythingElse:
   REPROCESS;
 }
 
+/** https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incdata */
+void Parser::text(std::unique_ptr<Token> token) {
+  if (token->type() == CHARACTER) {
+    auto charToken = CONVERT_TO(CharacterToken, token);
+    insertCharacter(std::move(charToken));
+    return;
+  }
+
+  if (token->type() == END_OF_FILE) {
+    m_nodeStack.pop_back();
+    m_insertionMode = m_originalInsertionMode;
+    REPROCESS;
+    return;
+  }
+
+  if (token->type() == END_TAG) {
+    auto tagToken = CONVERT_TO(TagToken, token);
+    // FIXME: special script handling
+    m_nodeStack.pop_back();
+    m_insertionMode = m_originalInsertionMode;
+    return;
+  }
+
+  assert(!"should be unreachable");
+}
+
 #define MODE(mode, func)                                                       \
   case mode:                                                                   \
     func(std::move(token));                                                    \
@@ -297,9 +325,10 @@ void Parser::process(std::unique_ptr<Token> token) {
     MODE(BEFORE_HTML, beforeHtml)
     MODE(BEFORE_HEAD, beforeHead)
     MODE(IN_HEAD, inHead)
+    MODE(TEXT, text)
   default:
-    std::clog << "unknown insertion mode encountered: " << m_insertionMode
-              << "\n";
+    std::cout << "unknown insertion mode encountered: " << m_insertionMode
+              << std::endl;
     throw StringException("unknown insertion mode encountered");
     break;
   }
@@ -310,6 +339,26 @@ void Parser::process(std::unique_ptr<Token> token) {
 /** https://html.spec.whatwg.org/multipage/parsing.html#reset-the-insertion-mode-appropriately */
 void Parser::resetInsertionModeAppropriately() {
   throw StringException("TODO: Parser::resetInsertionModeAppropriately");
+}
+
+/** https://html.spec.whatwg.org/multipage/parsing.html#insert-a-character */
+void Parser::insertCharacter(std::unique_ptr<CharacterToken> token) {
+  auto data = token->character();
+  auto location = CURRENT_NODE;
+
+  if (location->nodeType == LibDOM::Node::DOCUMENT_NODE)
+    return;
+
+  std::shared_ptr<LibDOM::Text> text;
+  if (!location->childNodes.empty() &&
+      location->childNodes.back()->nodeType == LibDOM::Node::TEXT_NODE) {
+    text = std::static_pointer_cast<LibDOM::Text>(location->childNodes.back());
+  } else {
+    text = std::shared_ptr<LibDOM::Text>(new LibDOM::Text());
+    location->appendChild(text);
+  }
+
+  text->data += data;
 }
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment */
@@ -374,15 +423,19 @@ Parser::insertForeignElement(TagToken *token, std::wstring ns,
 }
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#generic-raw-text-element-parsing-algorithm */
-void Parser::genericRawTextParse(std::unique_ptr<Token> token) {
-  (void)token;
-  throw StringException("TODO: Parser::genericRawTextParse");
+void Parser::genericRawTextParse(std::unique_ptr<TagToken> token) {
+  INSERT_HTML_ELEMENT(token);
+  m_tokenizer.currentState = RAWTEXT;
+  m_originalInsertionMode = m_insertionMode;
+  m_insertionMode = TEXT;
 }
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#generic-rcdata-element-parsing-algorithm */
-void Parser::genericRcdataParse(std::unique_ptr<Token> token) {
-  (void)token;
-  throw StringException("TODO: Parser::genericRcdataParse");
+void Parser::genericRcdataParse(std::unique_ptr<TagToken> token) {
+  INSERT_HTML_ELEMENT(token);
+  m_tokenizer.currentState = RCDATA;
+  m_originalInsertionMode = m_insertionMode;
+  m_insertionMode = TEXT;
 }
 
 } // namespace LibHTML
