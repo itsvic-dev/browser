@@ -18,7 +18,8 @@ size_t writeCallback(char *ptr, size_t size, size_t nmemb, void *userdata) {
 
 void walkTree(std::shared_ptr<LibDOM::Node> node, int indent = 0) {
   std::cout << std::string(indent * 2, ' ') << "└" << node->internalName()
-            << "\n";
+            << " (";
+  std::wcout << node->nodeName << ")\n";
   for (auto child : node->childNodes) {
     walkTree(child, indent + 1);
   }

@@ -326,11 +326,11 @@ void Parser::process(std::unique_ptr<Token> token) {
     MODE(BEFORE_HEAD, beforeHead)
     MODE(IN_HEAD, inHead)
     MODE(TEXT, text)
-  default:
-    std::cout << "unknown insertion mode encountered: " << m_insertionMode
-              << std::endl;
-    throw StringException("unknown insertion mode encountered");
-    break;
+    default:
+      std::cout << "unknown insertion mode encountered: " << m_insertionMode
+                << std::endl;
+      throw StringException("unknown insertion mode encountered");
+      break;
   }
 }
 
@@ -390,6 +390,7 @@ Parser::createElement(std::wstring localName, std::wstring ns,
   elem->namespaceURI = ns;
   elem->prefix = prefix;
   elem->localName = localName;
+  elem->nodeName = localName;
   elem->ownerDocument = document;
   return elem;
 }
