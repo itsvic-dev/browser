@@ -16,7 +16,7 @@
 #define CONVERT_TO(type, ptr)                                                  \
   std::unique_ptr<type>(reinterpret_cast<type *>(ptr.release()))
 
-#define currentNode (m_nodeStack.back())
+#define CURRENT_NODE (m_nodeStack.back())
 
 namespace LibHTML {
 
@@ -115,11 +115,7 @@ void Parser::beforeHtml(std::unique_ptr<Token> token) {
   }
 
 anythingElse:
-  auto elem = std::make_shared<LibDOM::HTMLHtmlElement>();
-  elem->nodeName = L"html";
-  elem->localName = L"html";
-  elem->namespaceURI = NS_HTML;
-  elem->ownerDocument = document;
+  auto elem = createElement(L"html", NS_HTML);
   document->appendChild(elem);
   m_nodeStack.push_back(elem);
   m_insertionMode = BEFORE_HEAD;
@@ -164,10 +160,39 @@ void Parser::insertComment(std::unique_ptr<Token> token,
 std::shared_ptr<LibDOM::Node>
 Parser::createElementForToken(TagToken *token, std::wstring ns,
                               std::shared_ptr<LibDOM::Node> intendedParent) {
-  (void)token;
-  (void)ns;
   (void)intendedParent;
-  throw StringException("TODO: Parser::createElementForToken");
+  auto elem = createElement(token->name(), ns);
+  for (const auto &attr : token->attributes) {
+    auto attribute = std::make_shared<LibDOM::Attr>();
+    attribute->name = attr.name;
+    attribute->value = attr.value;
+    elem->attributes.setNamedItem(attribute);
+  }
+  return elem;
+}
+
+#define LOCAL_DEF(ln, type)                                                    \
+  if (localName == ln)                                                         \
+    elem = std::make_shared<type>();
+
+/** https://dom.spec.whatwg.org/#concept-create-element */
+std::shared_ptr<LibDOM::HTMLElement>
+Parser::createElement(std::wstring localName, std::wstring ns,
+                      std::wstring prefix) {
+  std::shared_ptr<LibDOM::HTMLElement> elem = nullptr;
+
+  LOCAL_DEF(L"html", LibDOM::HTMLHtmlElement)
+  else {
+    std::wclog << L"WARNING: using default HTMLElement for localName "
+               << localName << L"\n";
+    elem = std::make_shared<LibDOM::HTMLElement>();
+  }
+
+  elem->namespaceURI = ns;
+  elem->prefix = prefix;
+  elem->localName = localName;
+  elem->ownerDocument = document;
+  return elem;
 }
 
 } // namespace LibHTML

@@ -55,6 +55,7 @@ private:
 
   void initialInsertion(std::unique_ptr<Token> token);
   void beforeHtml(std::unique_ptr<Token> token);
+  void beforeHead(std::unique_ptr<Token> token);
 
   /** https://html.spec.whatwg.org/multipage/parsing.html#reset-the-insertion-mode-appropriately */
   void resetInsertionModeAppropriately();
@@ -62,6 +63,11 @@ private:
   /** https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment */
   void insertComment(std::unique_ptr<Token> token,
                      std::shared_ptr<LibDOM::Node> position);
+
+  /** https://dom.spec.whatwg.org/#concept-create-element */
+  std::shared_ptr<LibDOM::HTMLElement> createElement(std::wstring localName,
+                                                     std::wstring ns,
+                                                     std::wstring prefix = L"");
 
   /** https://html.spec.whatwg.org/multipage/parsing.html#create-an-element-for-the-token */
   std::shared_ptr<LibDOM::Node>

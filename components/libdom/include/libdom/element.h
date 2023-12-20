@@ -2,24 +2,11 @@
 #define LIBDOM_ELEMENT_H
 
 #include "libdom/domstring.h"
+#include "libdom/namednodemap.h"
 #include "node.h"
 #include <memory>
 
 namespace LibDOM {
-
-class Element;
-
-class Attr : public Node {
-public:
-  DOMString namespaceURI;
-  DOMString prefix;
-  DOMString localName;
-  DOMString name;
-  DOMString value;
-
-  Element *ownerElement = nullptr;
-  const bool specified = true;
-};
 
 class Element : public Node {
 public:
@@ -29,6 +16,11 @@ public:
   DOMString prefix;
   DOMString localName;
   DOMString tagName;
+
+  NamedNodeMap attributes;
+  DOMString getAttribute(DOMString qualifiedName);
+  void setAttribute(DOMString qualifiedName, DOMString value);
+  void removeAttribute(DOMString qualifiedName);
 };
 
 class HTMLElement : public Element {};

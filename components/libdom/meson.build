@@ -5,6 +5,7 @@ libdolib = library(
 
     'comment.cpp',
     'element.cpp',
+    'namednodemap.cpp',
     'node.cpp',
     'text.cpp',
     
