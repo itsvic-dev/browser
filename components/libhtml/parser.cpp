@@ -361,6 +361,9 @@ anythingElse:
   REPROCESS;
 }
 
+/** https://html.spec.whatwg.org/multipage/parsing.html#the-after-head-insertion-mode */
+void Parser::inBody(std::unique_ptr<Token> token) { (void)token; }
+
 /** https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incdata
  */
 void Parser::text(std::unique_ptr<Token> token) {
@@ -402,6 +405,7 @@ void Parser::process(std::unique_ptr<Token> token) {
     MODE(BEFORE_HEAD, beforeHead)
     MODE(IN_HEAD, inHead)
     MODE(AFTER_HEAD, afterHead)
+    MODE(IN_BODY, inBody)
     MODE(TEXT, text)
     default:
       std::cout << "unknown insertion mode encountered: " << m_insertionMode
@@ -416,6 +420,11 @@ void Parser::process(std::unique_ptr<Token> token) {
 /** https://html.spec.whatwg.org/multipage/parsing.html#reset-the-insertion-mode-appropriately */
 void Parser::resetInsertionModeAppropriately() {
   throw StringException("TODO: Parser::resetInsertionModeAppropriately");
+}
+
+/** https://html.spec.whatwg.org/multipage/parsing.html#reconstruct-the-active-formatting-elements */
+void Parser::reconstructActiveFormattingElements() {
+  throw StringException("TODO: Parser::reconstructActiveFormattingElements");
 }
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#insert-a-character */

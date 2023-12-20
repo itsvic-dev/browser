@@ -58,10 +58,14 @@ private:
   void beforeHead(std::unique_ptr<Token> token);
   void inHead(std::unique_ptr<Token> token);
   void afterHead(std::unique_ptr<Token> token);
+  void inBody(std::unique_ptr<Token> token);
   void text(std::unique_ptr<Token> token);
 
   /** https://html.spec.whatwg.org/multipage/parsing.html#reset-the-insertion-mode-appropriately */
   void resetInsertionModeAppropriately();
+
+  /** https://html.spec.whatwg.org/multipage/parsing.html#reconstruct-the-active-formatting-elements */
+  void reconstructActiveFormattingElements();
 
   /** https://html.spec.whatwg.org/multipage/parsing.html#insert-a-character */
   void insertCharacter(std::unique_ptr<CharacterToken> token);
