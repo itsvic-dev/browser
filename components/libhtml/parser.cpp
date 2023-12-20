@@ -6,6 +6,7 @@
 #include "libhtml/exceptions.h"
 #include "libhtml/tokenizer.h"
 #include "libhtml/tokens.h"
+#include <algorithm>
 #include <cassert>
 #include <codecvt>
 #include <exception>
@@ -14,6 +15,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #define REPROCESS process(std::move(token))
 #define CONVERT_TO(type, ptr)                                                  \
@@ -23,6 +25,11 @@
 
 #define INSERT_HTML_ELEMENT(token)                                             \
   insertForeignElement((token).get(), NS_HTML, false)
+
+#define IS_ONE_OF(name, names)                                                 \
+  (std::find_if(names.begin(), names.end(), [name](std::wstring otherName) {   \
+     return otherName == name;                                                 \
+   }) != names.end())
 
 namespace LibHTML {
 
@@ -186,6 +193,7 @@ void Parser::inHead(std::unique_ptr<Token> token) {
   if (token->type() == CHARACTER) {
     auto charToken = CONVERT_TO(CharacterToken, token);
     if (isspace(charToken->character())) {
+      insertCharacter(std::move(charToken));
       return;
     }
     token = std::move(charToken);
@@ -286,7 +294,75 @@ anythingElse:
   REPROCESS;
 }
 
-/** https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incdata */
+/** https://html.spec.whatwg.org/multipage/parsing.html#the-after-head-insertion-mode */
+void Parser::afterHead(std::unique_ptr<Token> token) {
+  if (token->type() == CHARACTER) {
+    auto charToken = CONVERT_TO(CharacterToken, token);
+    if (isspace(charToken->character())) {
+      insertCharacter(std::move(charToken));
+      return;
+    }
+    token = std::move(charToken);
+  }
+
+  if (token->type() == COMMENT) {
+    insertComment(std::move(token), CURRENT_NODE);
+    return;
+  }
+
+  if (token->type() == DOCTYPE_TOKEN)
+    return;
+
+  if (token->type() == START_TAG) {
+    auto tagToken = CONVERT_TO(TagToken, token);
+    if (tagToken->name() == L"html") {
+      throw StringException("TODO: Process the token using the rules for the "
+                            "\"in body\" insertion mode.");
+    }
+    if (tagToken->name() == L"body") {
+      INSERT_HTML_ELEMENT(tagToken);
+      m_framesetOk = false;
+      m_insertionMode = IN_BODY;
+      return;
+    }
+    if (tagToken->name() == L"frameset") {
+      INSERT_HTML_ELEMENT(tagToken);
+      m_insertionMode = IN_FRAMESET;
+      return;
+    }
+    const std::vector<std::wstring> names = {
+        L"base",     L"basefont", L"bgsound", L"link",     L"meta",
+        L"noframes", L"script",   L"style",   L"template", L"title"};
+    auto name = tagToken->name();
+    if (IS_ONE_OF(name, names)) {
+      throw StringException("TODO: Process the token using the rules for the "
+                            "\"in head\" insertion mode.");
+    }
+    if (name == L"head")
+      return;
+    token = std::move(tagToken);
+  }
+
+  if (token->type() == END_TAG) {
+    auto tagToken = CONVERT_TO(TagToken, token);
+    if (tagToken->name() == L"body" || tagToken->name() == L"html" ||
+        tagToken->name() == L"br") {
+      goto anythingElse;
+      token = std::move(tagToken);
+    }
+    return;
+  }
+
+anythingElse:
+  auto tagToken = std::unique_ptr<TagToken>(new TagToken(START_TAG));
+  tagToken->appendName(L"body");
+  INSERT_HTML_ELEMENT(tagToken);
+  m_insertionMode = IN_BODY;
+  REPROCESS;
+}
+
+/** https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incdata
+ */
 void Parser::text(std::unique_ptr<Token> token) {
   if (token->type() == CHARACTER) {
     auto charToken = CONVERT_TO(CharacterToken, token);
@@ -325,6 +401,7 @@ void Parser::process(std::unique_ptr<Token> token) {
     MODE(BEFORE_HTML, beforeHtml)
     MODE(BEFORE_HEAD, beforeHead)
     MODE(IN_HEAD, inHead)
+    MODE(AFTER_HEAD, afterHead)
     MODE(TEXT, text)
     default:
       std::cout << "unknown insertion mode encountered: " << m_insertionMode

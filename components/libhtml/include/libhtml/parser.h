@@ -57,6 +57,7 @@ private:
   void beforeHtml(std::unique_ptr<Token> token);
   void beforeHead(std::unique_ptr<Token> token);
   void inHead(std::unique_ptr<Token> token);
+  void afterHead(std::unique_ptr<Token> token);
   void text(std::unique_ptr<Token> token);
 
   /** https://html.spec.whatwg.org/multipage/parsing.html#reset-the-insertion-mode-appropriately */
@@ -100,6 +101,7 @@ private:
   std::shared_ptr<LibDOM::Node> m_formElementPointer = nullptr;
 
   bool m_scriptingFlag = false;
+  bool m_framesetOk = true;
 };
 
 } // namespace LibHTML

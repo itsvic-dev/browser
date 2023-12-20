@@ -1,5 +1,5 @@
 FormatStyle: file
-Checks: "-*,clang-diagnostic-*,misc-*,-misc-no-recursion,readability-identifier-naming"
+Checks: "-*,clang-diagnostic-*,misc-*,-misc-non-private-member-variables-in-classes,-misc-no-recursion,readability-identifier-naming"
 CheckOptions:
   - key: readability-identifier-naming.ClassCase
     value: CamelCase
