@@ -3,6 +3,7 @@
 
 #include "libhtml/tokens.h"
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -35,37 +36,33 @@ enum TokenizerState : int {
   AFTER_DOCTYPE_NAME,
 };
 
+typedef std::function<void(std::unique_ptr<Token>)> OnEmitFunction;
+
 class Tokenizer {
 public:
   Tokenizer() = default;
   ~Tokenizer() = default;
 
-  void process(const char *input, size_t size);
-
-  /**
-    Get the amount of processed characters.
-  */
-  size_t processed();
-
-  std::vector<std::shared_ptr<Token>> tokens = {};
+  void process(const wchar_t *input, size_t size, OnEmitFunction onEmit);
 
 private:
   void stateTick();
   void consume();
   void consume(size_t howMany);
-  void emit(std::shared_ptr<Token> token);
-  void create(std::shared_ptr<Token> token);
+  void emit(std::unique_ptr<Token> token);
+  void create(std::unique_ptr<Token> token);
   void emitCurrent();
+  OnEmitFunction m_onEmit;
 
   TokenizerState m_currentState = DATA;
   TokenizerState m_returnState = UNDEFINED_STATE;
 
-  const char *m_input = nullptr;
+  const wchar_t *m_input = nullptr;
   size_t m_inputSize = 0;
   size_t m_inputPtr = 0;
-  char m_currentChar = 0;
+  wchar_t m_currentChar = 0;
 
-  std::shared_ptr<Token> m_currentToken;
+  std::unique_ptr<Token> m_currentToken;
 };
 
 } // namespace LibHTML

@@ -1,8 +1,9 @@
-#ifndef LIBHTML_AST_H
-#define LIBHTML_AST_H
+#ifndef LIBHTML_PARSER_H
+#define LIBHTML_PARSER_H
 
 #include "libdom.h"
 #include "libdom/element.h"
+#include "libhtml/tokenizer.h"
 #include "libhtml/tokens.h"
 #include <cstddef>
 #include <memory>
@@ -47,6 +48,7 @@ public:
 
 private:
   void onEmit(std::unique_ptr<Token> token);
+  Tokenizer m_tokenizer;
 };
 
 } // namespace LibHTML
