@@ -13,6 +13,9 @@ namespace LibHTML {
 enum TokenizerState : int {
   UNDEFINED_STATE,
   DATA,
+  RCDATA,
+  RAWTEXT,
+  SCRIPT_DATA,
   TAG_OPEN,
   TAG_NAME,
   END_TAG_OPEN,

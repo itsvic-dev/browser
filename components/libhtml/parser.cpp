@@ -3,6 +3,7 @@
 #include "libdom/element.h"
 #include "libdom/node.h"
 #include "libhtml/exceptions.h"
+#include "libhtml/tokenizer.h"
 #include "libhtml/tokens.h"
 #include <codecvt>
 #include <exception>
@@ -136,7 +137,7 @@ void Parser::beforeHead(std::unique_ptr<Token> token) {
   }
 
   if (token->type() == COMMENT) {
-    insertComment(std::move(token), document);
+    insertComment(std::move(token), CURRENT_NODE);
     return;
   }
 
@@ -178,6 +179,111 @@ anythingElse:
   REPROCESS;
 }
 
+/** https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhead */
+void Parser::inHead(std::unique_ptr<Token> token) {
+  if (token->type() == CHARACTER) {
+    auto charToken = CONVERT_TO(CharacterToken, token);
+    if (isspace(charToken->character())) {
+      return;
+    }
+    token = std::move(charToken);
+  }
+
+  if (token->type() == COMMENT) {
+    insertComment(std::move(token), CURRENT_NODE);
+    return;
+  }
+
+  if (token->type() == DOCTYPE_TOKEN)
+    return;
+
+  if (token->type() == START_TAG) {
+    auto tagToken = CONVERT_TO(TagToken, token);
+    if (tagToken->name() == L"html") {
+      throw StringException("TODO: Process the token using the rules for the "
+                            "\"in body\" insertion mode.");
+    }
+
+    if (tagToken->name() == L"template") {
+      throw StringException("TODO: in head: template end tag");
+    }
+
+    if (tagToken->name() == L"base" || tagToken->name() == L"basefont" ||
+        tagToken->name() == L"bgsound" || tagToken->name() == L"link") {
+      auto elem = INSERT_HTML_ELEMENT(tagToken);
+      m_nodeStack.pop_back();
+      return;
+    }
+
+    if (tagToken->name() == L"meta") {
+      auto elem = INSERT_HTML_ELEMENT(tagToken);
+      m_nodeStack.pop_back();
+      // FIXME: proper charset/content-type encoding handling
+      return;
+    }
+
+    if (tagToken->name() == L"title") {
+      genericRcdataParse(std::move(tagToken));
+      return;
+    }
+
+    if (tagToken->name() == L"noframes" || tagToken->name() == L"style" ||
+        (tagToken->name() == L"noscript" && m_scriptingFlag)) {
+      genericRawTextParse(std::move(tagToken));
+      return;
+    }
+
+    if (tagToken->name() == L"noscript" && !m_scriptingFlag) {
+      INSERT_HTML_ELEMENT(tagToken);
+      m_insertionMode = IN_HEAD_NOSCRIPT;
+      return;
+    }
+
+    if (tagToken->name() == L"script") {
+      auto location = CURRENT_NODE;
+      auto elem = createElementForToken(tagToken.get(), NS_HTML, location);
+      // FIXME: Set the element's parser document to the Document, and set the
+      // element's force async to false.
+      location->appendChild(elem);
+      m_nodeStack.push_back(elem);
+      m_tokenizer.currentState = SCRIPT_DATA;
+      m_originalInsertionMode = m_insertionMode;
+      m_insertionMode = TEXT;
+      return;
+    }
+
+    if (tagToken->name() == L"head") {
+      return;
+    }
+    token = std::move(tagToken);
+  }
+
+  if (token->type() == END_TAG) {
+    auto tagToken = CONVERT_TO(TagToken, token);
+    if (tagToken->name() == L"head") {
+      m_nodeStack.pop_back();
+      m_insertionMode = AFTER_HEAD;
+      return;
+    }
+
+    if (tagToken->name() == L"template") {
+      throw StringException("TODO: in head: template end tag");
+    }
+
+    if (tagToken->name() == L"body" || tagToken->name() == L"html" ||
+        tagToken->name() == L"br") {
+      token = std::move(tagToken);
+      goto anythingElse;
+    }
+    return;
+  }
+
+anythingElse:
+  m_nodeStack.pop_back();
+  m_insertionMode = AFTER_HEAD;
+  REPROCESS;
+}
+
 #define MODE(mode, func)                                                       \
   case mode:                                                                   \
     func(std::move(token));                                                    \
@@ -190,8 +296,7 @@ void Parser::process(std::unique_ptr<Token> token) {
     MODE(INITIAL, initialInsertion)
     MODE(BEFORE_HTML, beforeHtml)
     MODE(BEFORE_HEAD, beforeHead)
-  case 3:
-    break;
+    MODE(IN_HEAD, inHead)
   default:
     std::clog << "unknown insertion mode encountered: " << m_insertionMode
               << "\n";
@@ -266,6 +371,18 @@ Parser::insertForeignElement(TagToken *token, std::wstring ns,
     insertLocation->appendChild(elem);
   m_nodeStack.push_back(elem);
   return elem;
+}
+
+/** https://html.spec.whatwg.org/multipage/parsing.html#generic-raw-text-element-parsing-algorithm */
+void Parser::genericRawTextParse(std::unique_ptr<Token> token) {
+  (void)token;
+  throw StringException("TODO: Parser::genericRawTextParse");
+}
+
+/** https://html.spec.whatwg.org/multipage/parsing.html#generic-rcdata-element-parsing-algorithm */
+void Parser::genericRcdataParse(std::unique_ptr<Token> token) {
+  (void)token;
+  throw StringException("TODO: Parser::genericRcdataParse");
 }
 
 } // namespace LibHTML

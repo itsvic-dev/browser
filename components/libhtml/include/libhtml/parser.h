@@ -56,6 +56,7 @@ private:
   void initialInsertion(std::unique_ptr<Token> token);
   void beforeHtml(std::unique_ptr<Token> token);
   void beforeHead(std::unique_ptr<Token> token);
+  void inHead(std::unique_ptr<Token> token);
 
   /** https://html.spec.whatwg.org/multipage/parsing.html#reset-the-insertion-mode-appropriately */
   void resetInsertionModeAppropriately();
@@ -79,13 +80,22 @@ private:
   insertForeignElement(TagToken *token, std::wstring ns,
                        bool onlyAddToElementStack);
 
+  /** https://html.spec.whatwg.org/multipage/parsing.html#generic-raw-text-element-parsing-algorithm */
+  void genericRawTextParse(std::unique_ptr<Token> token);
+
+  /** https://html.spec.whatwg.org/multipage/parsing.html#generic-rcdata-element-parsing-algorithm */
+  void genericRcdataParse(std::unique_ptr<Token> token);
+
   Tokenizer m_tokenizer;
   ParserMode m_insertionMode = INITIAL;
+  ParserMode m_originalInsertionMode = INITIAL;
   /** Stack of open elements */
   std::vector<std::shared_ptr<LibDOM::Node>> m_nodeStack;
 
   std::shared_ptr<LibDOM::Node> m_headElementPointer = nullptr;
   std::shared_ptr<LibDOM::Node> m_formElementPointer = nullptr;
+
+  bool m_scriptingFlag = false;
 };
 
 } // namespace LibHTML
