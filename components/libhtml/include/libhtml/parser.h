@@ -3,6 +3,7 @@
 
 #include "libdom.h"
 #include "libdom/element.h"
+#include "libdom/node.h"
 #include "libhtml/tokenizer.h"
 #include "libhtml/tokens.h"
 #include <cstddef>
@@ -47,9 +48,20 @@ public:
   void parse(const char *text, size_t textLen);
   void parse(const wchar_t *text, size_t textLen);
 
+  std::shared_ptr<LibDOM::Document> document;
+
 private:
-  void onEmit(std::unique_ptr<Token> token);
+  void process(std::unique_ptr<Token> token);
+
+  void initialInsertion(std::unique_ptr<Token> token);
+
+  /** https://html.spec.whatwg.org/multipage/parsing.html#reset-the-insertion-mode-appropriately */
+  void resetInsertionModeAppropriately();
+
   Tokenizer m_tokenizer;
+  ParserMode m_insertionMode = INITIAL;
+  /** Stack of open elements */
+  std::vector<std::shared_ptr<LibDOM::Node>> m_nodeStack;
 };
 
 } // namespace LibHTML

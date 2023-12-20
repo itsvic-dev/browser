@@ -1,5 +1,6 @@
 #include "libhtml/tokenizer.h"
 #include "libhtml.h"
+#include "libhtml/exceptions.h"
 #include "libhtml/tokens.h"
 #include <cassert>
 #include <cctype>
@@ -30,7 +31,7 @@ void Tokenizer::process(const wchar_t *input, size_t size,
   m_onEmit = onEmit;
 
   while (m_inputPtr < m_inputSize) {
-    std::cout << "state=" << currentState << " ptr=" << m_inputPtr << "\n";
+    // std::cout << "state=" << currentState << " ptr=" << m_inputPtr << "\n";
     stateTick();
   }
 }
@@ -130,7 +131,6 @@ void Tokenizer::stateTick() {
     if (m_currentChar == 0) {
       // "This is an unexpected-null-character parse error. Append a U+FFFD
       // REPLACEMENT CHARACTER character to the current tag token's tag name."
-      // FIXME: proper unicode
       assert(m_currentToken->type() == START_TAG ||
              m_currentToken->type() == END_TAG);
       auto token = CONVERT_TO(TagToken, m_currentToken);
@@ -605,8 +605,9 @@ void Tokenizer::stateTick() {
 
   // Unhandled state - missing implementation
   default: {
-    std::cerr << "[LibHTML] Unhandled state " << currentState << "\n";
-    throw 0;
+    std::clog << "unknown tokenizer state encountered: " << currentState
+              << "\n";
+    throw StringException("unknown tokenizer state encountered");
   }
   }
 }
