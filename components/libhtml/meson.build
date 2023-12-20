@@ -3,7 +3,7 @@ libhtml_inc = include_directories('include')
 libhtml_lib = library(
     'components-libhtml',
 
-    'ast.cpp',
+    'parser.cpp',
     'tokenizer.cpp',
     'tokens.cpp',
     

@@ -1,4 +1,6 @@
-#pragma once
+#ifndef LIBHTML_TOKENS_H
+#define LIBHTML_TOKENS_H
+
 #include <string>
 #include <vector>
 
@@ -17,6 +19,7 @@ enum TokenType : int {
 class Token {
 public:
   Token() = default;
+  virtual ~Token() = default;
   virtual TokenType type();
 };
 
@@ -27,7 +30,7 @@ public:
   char character();
 
 private:
-  wchar_t c;
+  wchar_t m_c;
 };
 
 class EOFToken : public Token {
@@ -90,3 +93,5 @@ private:
 };
 
 } // namespace LibHTML
+
+#endif

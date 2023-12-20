@@ -10,48 +10,49 @@
 #include <string.h>
 
 // helper macros
-#define IF_IS(x) if (current_char == (x))
+#define IF_IS(x) if (m_currentChar == (x))
+#define RECONSUME m_inputPtr--;
 
 namespace LibHTML {
 
 void Tokenizer::process(const char *input, size_t size) {
-  // Walk the input using the state machine described by the HTML spec
+  // Walk the m_input using the state machine described by the HTML spec
   // https://html.spec.whatwg.org/#tokenization
   // FIXME: convert to wstring before feeding parser
-  this->input = input;
-  input_size = size;
-  input_ptr = 0;
+  m_input = input;
+  m_inputSize = size;
+  m_inputPtr = 0;
 
-  while (input_ptr < input_size) {
+  while (m_inputPtr < m_inputSize) {
     stateTick();
   }
 }
 
-size_t Tokenizer::processed() { return input_ptr; }
+size_t Tokenizer::processed() { return m_inputPtr; }
 
 void Tokenizer::stateTick() {
-  switch (current_state) {
+  switch (m_currentState) {
   // https://html.spec.whatwg.org/multipage/parsing.html#data-state
   case DATA: {
     consume();
-    switch (current_char) {
+    switch (m_currentChar) {
     case '&':
-      return_state = DATA;
-      current_state = CHARACTER_REFERENCE;
+      m_returnState = DATA;
+      m_currentState = CHARACTER_REFERENCE;
       break;
     case '<':
-      current_state = TAG_OPEN;
+      m_currentState = TAG_OPEN;
       break;
     case 0:
       // "This is an unexpected-null-character parse error. Emit the current
-      // input character as a character token."
-      emit(std::make_shared<CharacterToken>(current_char));
+      // m_input character as a character token."
+      emit(std::make_shared<CharacterToken>(m_currentChar));
       break;
     case EOF:
       emit(std::make_shared<EOFToken>());
       break;
     default:
-      emit(std::make_shared<CharacterToken>(current_char));
+      emit(std::make_shared<CharacterToken>(m_currentChar));
     }
     break;
   }
@@ -59,30 +60,30 @@ void Tokenizer::stateTick() {
   // https://html.spec.whatwg.org/multipage/parsing.html#tag-open-state
   case TAG_OPEN: {
     consume();
-    if (current_char == '!') {
-      current_state = MARKUP_DECLARATION;
+    if (m_currentChar == '!') {
+      m_currentState = MARKUP_DECLARATION;
       return;
     }
-    if (current_char == '/') {
-      current_state = END_TAG_OPEN;
+    if (m_currentChar == '/') {
+      m_currentState = END_TAG_OPEN;
       return;
     }
-    if (isalpha(current_char)) {
+    if (isalpha(m_currentChar)) {
       create(std::make_shared<TagToken>(START_TAG));
-      input_ptr--; // reconsume
-      current_state = TAG_NAME;
+      m_inputPtr--; // reconsume
+      m_currentState = TAG_NAME;
       return;
     }
-    if (current_char == '?') {
+    if (m_currentChar == '?') {
       // "This is an unexpected-question-mark-instead-of-tag-name parse error.
       // Create a comment token whose data is the empty string. Reconsume in the
       // bogus comment state."
       create(std::make_shared<CommentToken>());
-      input_ptr--; // reconsume
-      current_state = BOGUS_COMMENT;
+      m_inputPtr--; // reconsume
+      m_currentState = BOGUS_COMMENT;
       return;
     }
-    if (current_char == EOF) {
+    if (m_currentChar == EOF) {
       // "This is an eof-before-tag-name parse error. Emit a U+003C LESS-THAN
       // SIGN character token and an end-of-file token."
       emit(std::make_shared<CharacterToken>('>'));
@@ -92,68 +93,68 @@ void Tokenizer::stateTick() {
     // "This is an invalid-first-character-of-tag-name parse error. Emit a
     // U+003C LESS-THAN SIGN character token. Reconsume in the data state."
     emit(std::make_shared<CharacterToken>('>'));
-    input_ptr--; // reconsume
-    current_state = DATA;
+    m_inputPtr--; // reconsume
+    m_currentState = DATA;
     break;
   }
 
   // https://html.spec.whatwg.org/multipage/parsing.html#tag-name-state
   case TAG_NAME: {
     consume();
-    if (isspace(current_char)) {
-      current_state = BEFORE_ATTRIBUTE_NAME;
+    if (isspace(m_currentChar)) {
+      m_currentState = BEFORE_ATTRIBUTE_NAME;
       return;
     }
-    if (current_char == '/') {
-      current_state = SELF_CLOSING_START_TAG;
+    if (m_currentChar == '/') {
+      m_currentState = SELF_CLOSING_START_TAG;
       return;
     }
-    if (current_char == '>') {
-      current_state = DATA;
+    if (m_currentChar == '>') {
+      m_currentState = DATA;
       emitCurrent();
       return;
     }
-    if (isupper(current_char)) {
-      assert(current_token->type() == START_TAG ||
-             current_token->type() == END_TAG);
-      auto token = std::static_pointer_cast<TagToken>(current_token);
-      token->appendName(current_char + 0x20);
+    if (isupper(m_currentChar)) {
+      assert(m_currentToken->type() == START_TAG ||
+             m_currentToken->type() == END_TAG);
+      auto token = std::static_pointer_cast<TagToken>(m_currentToken);
+      token->appendName(m_currentChar + 0x20);
       return;
     }
-    if (current_char == 0) {
+    if (m_currentChar == 0) {
       // "This is an unexpected-null-character parse error. Append a U+FFFD
       // REPLACEMENT CHARACTER character to the current tag token's tag name."
       // FIXME: proper unicode
-      assert(current_token->type() == START_TAG ||
-             current_token->type() == END_TAG);
-      auto token = std::static_pointer_cast<TagToken>(current_token);
+      assert(m_currentToken->type() == START_TAG ||
+             m_currentToken->type() == END_TAG);
+      auto token = std::static_pointer_cast<TagToken>(m_currentToken);
       token->appendName(L"\ufffd");
       return;
     }
-    if (current_char == EOF) {
+    if (m_currentChar == EOF) {
       // "This is an eof-in-tag parse error. Emit an end-of-file token."
       emit(std::make_shared<EOFToken>());
       return;
     }
-    assert(current_token->type() == START_TAG ||
-           current_token->type() == END_TAG);
-    auto token = std::static_pointer_cast<TagToken>(current_token);
-    token->appendName(current_char);
+    assert(m_currentToken->type() == START_TAG ||
+           m_currentToken->type() == END_TAG);
+    auto token = std::static_pointer_cast<TagToken>(m_currentToken);
+    token->appendName(m_currentChar);
     break;
   }
 
   // https://html.spec.whatwg.org/multipage/parsing.html#end-tag-open-state
   case END_TAG_OPEN: {
     consume();
-    if (isalpha(current_char)) {
+    if (isalpha(m_currentChar)) {
       create(std::make_shared<TagToken>(END_TAG));
-      input_ptr--;
-      current_state = TAG_NAME;
+      m_inputPtr--;
+      m_currentState = TAG_NAME;
       return;
     }
     IF_IS('>') {
       // "This is a missing-end-tag-name parse error. Switch to the data state."
-      current_state = DATA;
+      m_currentState = DATA;
       return;
     }
     IF_IS(EOF) {
@@ -169,81 +170,81 @@ void Tokenizer::stateTick() {
     // comment token whose data is the empty string. Reconsume in the bogus
     // comment state."
     create(std::make_shared<CommentToken>());
-    current_state = BOGUS_COMMENT;
+    m_currentState = BOGUS_COMMENT;
     break;
   }
 
   // https://html.spec.whatwg.org/multipage/parsing.html#before-attribute-name-state
   case BEFORE_ATTRIBUTE_NAME: {
     consume();
-    if (isspace(current_char)) {
+    if (isspace(m_currentChar)) {
       return; // ignore
     }
-    if (current_char == '/' || current_char == '>' || current_char == EOF) {
-      input_ptr--;
-      current_state = AFTER_ATTRIBUTE_NAME;
+    if (m_currentChar == '/' || m_currentChar == '>' || m_currentChar == EOF) {
+      m_inputPtr--;
+      m_currentState = AFTER_ATTRIBUTE_NAME;
       return;
     }
     IF_IS('=') {
-      assert(current_token->type() == START_TAG);
-      auto token = std::static_pointer_cast<TagToken>(current_token);
-      token->attributes.push_back({std::wstring(1, current_char), L""});
-      current_state = ATTRIBUTE_NAME;
+      assert(m_currentToken->type() == START_TAG);
+      auto token = std::static_pointer_cast<TagToken>(m_currentToken);
+      token->attributes.push_back({std::wstring(1, m_currentChar), L""});
+      m_currentState = ATTRIBUTE_NAME;
       return;
     }
-    assert(current_token->type() == START_TAG);
-    auto token = std::static_pointer_cast<TagToken>(current_token);
+    assert(m_currentToken->type() == START_TAG);
+    auto token = std::static_pointer_cast<TagToken>(m_currentToken);
     token->attributes.push_back({L"", L""});
-    input_ptr--;
-    current_state = ATTRIBUTE_NAME;
+    m_inputPtr--;
+    m_currentState = ATTRIBUTE_NAME;
     break;
   }
 
   // https://html.spec.whatwg.org/multipage/parsing.html#attribute-name-state
   case ATTRIBUTE_NAME: {
     consume();
-    if (isspace(current_char) || current_char == '/' || current_char == '>' ||
-        current_char == EOF) {
-      input_ptr--;
-      current_state = AFTER_ATTRIBUTE_NAME;
+    if (isspace(m_currentChar) || m_currentChar == '/' ||
+        m_currentChar == '>' || m_currentChar == EOF) {
+      m_inputPtr--;
+      m_currentState = AFTER_ATTRIBUTE_NAME;
       return;
     }
     IF_IS('=') {
-      current_state = BEFORE_ATTRIBUTE_VALUE;
+      m_currentState = BEFORE_ATTRIBUTE_VALUE;
       return;
     }
-    if (isupper(current_char)) {
-      assert(current_token->type() == START_TAG);
-      auto token = std::static_pointer_cast<TagToken>(current_token);
-      token->attributes.back().name += current_char;
+    if (isupper(m_currentChar)) {
+      assert(m_currentToken->type() == START_TAG);
+      auto token = std::static_pointer_cast<TagToken>(m_currentToken);
+      token->attributes.back().name += m_currentChar;
       return;
     }
     IF_IS(0) {
       // "This is an unexpected-null-character parse error. Append a U+FFFD
       // REPLACEMENT CHARACTER character to the current attribute's name."
-      assert(current_token->type() == START_TAG);
-      auto token = std::static_pointer_cast<TagToken>(current_token);
+      assert(m_currentToken->type() == START_TAG);
+      auto token = std::static_pointer_cast<TagToken>(m_currentToken);
       token->attributes.back().name += L"\ufffd";
       return;
     }
-    assert(current_token->type() == START_TAG);
-    auto token = std::static_pointer_cast<TagToken>(current_token);
-    token->attributes.back().name += current_char;
+    assert(m_currentToken->type() == START_TAG);
+    auto token = std::static_pointer_cast<TagToken>(m_currentToken);
+    token->attributes.back().name += m_currentChar;
     break;
   }
 
   // https://html.spec.whatwg.org/multipage/parsing.html#after-attribute-name-state
   case AFTER_ATTRIBUTE_NAME: {
     consume();
-    if (isspace(current_char)) {
+    if (isspace(m_currentChar)) {
       return; // ignore
     }
     IF_IS('/') {
-      current_state = SELF_CLOSING_START_TAG;
+      m_currentState = SELF_CLOSING_START_TAG;
       return;
     }
     IF_IS('=') {
-      current_state = BEFORE_ATTRIBUTE_VALUE;
+      m_currentState = BEFORE_ATTRIBUTE_VALUE;
       return;
     }
     IF_IS(EOF) {
@@ -251,37 +252,37 @@ void Tokenizer::stateTick() {
       emit(std::make_shared<EOFToken>());
       return;
     }
-    assert(current_token->type() == START_TAG);
-    auto token = std::static_pointer_cast<TagToken>(current_token);
+    assert(m_currentToken->type() == START_TAG);
+    auto token = std::static_pointer_cast<TagToken>(m_currentToken);
     token->attributes.push_back({L"", L""});
-    input_ptr--;
-    current_state = ATTRIBUTE_NAME;
+    m_inputPtr--;
+    m_currentState = ATTRIBUTE_NAME;
     break;
   }
 
   // https://html.spec.whatwg.org/multipage/parsing.html#before-attribute-value-state
   case BEFORE_ATTRIBUTE_VALUE: {
     consume();
-    if (isspace(current_char)) {
+    if (isspace(m_currentChar)) {
       return; // ignore
     }
     IF_IS('"') {
-      current_state = ATTRIBUTE_VALUE_DOUBLE_QUOTE;
+      m_currentState = ATTRIBUTE_VALUE_DOUBLE_QUOTE;
       return;
     }
     IF_IS('\'') {
-      current_state = ATTRIBUTE_VALUE_SINGLE_QUOTE;
+      m_currentState = ATTRIBUTE_VALUE_SINGLE_QUOTE;
       return;
     }
     IF_IS('>') {
       // "This is a missing-attribute-value parse error. Switch to the data
       // state. Emit the current tag token."
-      current_state = DATA;
+      m_currentState = DATA;
       emitCurrent();
       return;
     }
-    input_ptr--;
-    current_state = ATTRIBUTE_VALUE_UNQUOTED;
+    m_inputPtr--;
+    m_currentState = ATTRIBUTE_VALUE_UNQUOTED;
     break;
   }
 
@@ -289,19 +290,19 @@ void Tokenizer::stateTick() {
   case ATTRIBUTE_VALUE_DOUBLE_QUOTE: {
     consume();
     IF_IS('"') {
-      current_state = AFTER_ATTRIBUTE_VALUE_QUOTED;
+      m_currentState = AFTER_ATTRIBUTE_VALUE_QUOTED;
       return;
     }
     IF_IS('&') {
-      return_state = ATTRIBUTE_VALUE_DOUBLE_QUOTE;
-      current_state = CHARACTER_REFERENCE;
+      m_returnState = ATTRIBUTE_VALUE_DOUBLE_QUOTE;
+      m_currentState = CHARACTER_REFERENCE;
       return;
     }
     IF_IS(0) {
       // "This is an unexpected-null-character parse error. Append a U+FFFD
       // REPLACEMENT CHARACTER character to the current attribute's value."
-      assert(current_token->type() == START_TAG);
-      auto token = std::static_pointer_cast<TagToken>(current_token);
+      assert(m_currentToken->type() == START_TAG);
+      auto token = std::static_pointer_cast<TagToken>(m_currentToken);
       token->attributes.back().value += L"\ufffd";
       return;
     }
@@ -309,9 +310,9 @@ void Tokenizer::stateTick() {
       emit(std::make_shared<EOFToken>());
       return;
     }
-    assert(current_token->type() == START_TAG);
-    auto token = std::static_pointer_cast<TagToken>(current_token);
-    token->attributes.back().value += current_char;
+    assert(m_currentToken->type() == START_TAG);
+    auto token = std::static_pointer_cast<TagToken>(m_currentToken);
+    token->attributes.back().value += m_currentChar;
     break;
   }
 
@@ -319,19 +320,19 @@ void Tokenizer::stateTick() {
   case ATTRIBUTE_VALUE_SINGLE_QUOTE: {
     consume();
     IF_IS('\'') {
-      current_state = AFTER_ATTRIBUTE_VALUE_QUOTED;
+      m_currentState = AFTER_ATTRIBUTE_VALUE_QUOTED;
       return;
     }
     IF_IS('&') {
-      return_state = ATTRIBUTE_VALUE_SINGLE_QUOTE;
-      current_state = CHARACTER_REFERENCE;
+      m_returnState = ATTRIBUTE_VALUE_SINGLE_QUOTE;
+      m_currentState = CHARACTER_REFERENCE;
       return;
     }
     IF_IS(0) {
       // "This is an unexpected-null-character parse error. Append a U+FFFD
       // REPLACEMENT CHARACTER character to the current attribute's value."
-      assert(current_token->type() == START_TAG);
-      auto token = std::static_pointer_cast<TagToken>(current_token);
+      assert(m_currentToken->type() == START_TAG);
+      auto token = std::static_pointer_cast<TagToken>(m_currentToken);
       token->attributes.back().value += L"\ufffd";
       return;
     }
@@ -339,34 +340,34 @@ void Tokenizer::stateTick() {
       emit(std::make_shared<EOFToken>());
       return;
     }
-    assert(current_token->type() == START_TAG);
-    auto token = std::static_pointer_cast<TagToken>(current_token);
-    token->attributes.back().value += current_char;
+    assert(m_currentToken->type() == START_TAG);
+    auto token = std::static_pointer_cast<TagToken>(m_currentToken);
+    token->attributes.back().value += m_currentChar;
     break;
   }
 
   // https://html.spec.whatwg.org/multipage/parsing.html#attribute-value-(unquoted)-state
   case ATTRIBUTE_VALUE_UNQUOTED: {
     consume();
-    if (isspace(current_char)) {
-      current_state = BEFORE_ATTRIBUTE_NAME;
+    if (isspace(m_currentChar)) {
+      m_currentState = BEFORE_ATTRIBUTE_NAME;
       return;
     }
     IF_IS('&') {
-      return_state = ATTRIBUTE_VALUE_UNQUOTED;
-      current_state = CHARACTER_REFERENCE;
+      m_returnState = ATTRIBUTE_VALUE_UNQUOTED;
+      m_currentState = CHARACTER_REFERENCE;
       return;
     }
     IF_IS('>') {
-      current_state = DATA;
+      m_currentState = DATA;
       emitCurrent();
       return;
     }
     IF_IS(0) {
       // "This is an unexpected-null-character parse error. Append a U+FFFD
       // REPLACEMENT CHARACTER character to the current attribute's value."
-      assert(current_token->type() == START_TAG);
-      auto token = std::static_pointer_cast<TagToken>(current_token);
+      assert(m_currentToken->type() == START_TAG);
+      auto token = std::static_pointer_cast<TagToken>(m_currentToken);
       token->attributes.back().value += L"\ufffd";
       return;
     }
@@ -374,25 +375,25 @@ void Tokenizer::stateTick() {
       emit(std::make_shared<EOFToken>());
       return;
     }
-    assert(current_token->type() == START_TAG);
-    auto token = std::static_pointer_cast<TagToken>(current_token);
-    token->attributes.back().value += current_char;
+    assert(m_currentToken->type() == START_TAG);
+    auto token = std::static_pointer_cast<TagToken>(m_currentToken);
+    token->attributes.back().value += m_currentChar;
     break;
   }
 
   // https://html.spec.whatwg.org/multipage/parsing.html#after-attribute-value-(quoted)-state
   case AFTER_ATTRIBUTE_VALUE_QUOTED: {
     consume();
-    if (isspace(current_char)) {
-      current_state = BEFORE_ATTRIBUTE_NAME;
+    if (isspace(m_currentChar)) {
+      m_currentState = BEFORE_ATTRIBUTE_NAME;
       return;
     }
     IF_IS('/') {
-      current_state = SELF_CLOSING_START_TAG;
+      m_currentState = SELF_CLOSING_START_TAG;
       return;
     }
     IF_IS('>') {
-      current_state = DATA;
+      m_currentState = DATA;
       emitCurrent();
       return;
     }
@@ -403,16 +404,16 @@ void Tokenizer::stateTick() {
     }
     // "This is a missing-whitespace-between-attributes parse error. Reconsume
     // in the before attribute name state."
-    input_ptr--;
-    current_state = BEFORE_ATTRIBUTE_NAME;
+    m_inputPtr--;
+    m_currentState = BEFORE_ATTRIBUTE_NAME;
     break;
   }
 
   case SELF_CLOSING_START_TAG: {
     consume();
     IF_IS('>') {
-      assert(current_token->type() == START_TAG);
-      auto token = std::static_pointer_cast<TagToken>(current_token);
+      assert(m_currentToken->type() == START_TAG);
+      auto token = std::static_pointer_cast<TagToken>(m_currentToken);
       token->selfClosing = true;
       emitCurrent();
       return;
@@ -423,53 +424,53 @@ void Tokenizer::stateTick() {
     }
     // "This is an unexpected-solidus-in-tag parse error. Reconsume in the
     // before attribute name state."
-    input_ptr--;
-    current_state = BEFORE_ATTRIBUTE_NAME;
+    m_inputPtr--;
+    m_currentState = BEFORE_ATTRIBUTE_NAME;
     break;
   }
 
   case MARKUP_DECLARATION: {
-    if (strncmp(&input[input_ptr], "--", 2) == 0) {
+    if (strncmp(&m_input[m_inputPtr], "--", 2) == 0) {
       consume(2);
       emit(std::make_shared<CommentToken>());
-      current_state = COMMENT_START;
+      m_currentState = COMMENT_START;
       return;
     }
-    if (strncasecmp(&input[input_ptr], "DOCTYPE", 7) == 0) {
+    if (strncasecmp(&m_input[m_inputPtr], "DOCTYPE", 7) == 0) {
       consume(7);
-      current_state = DOCTYPE_STATE;
+      m_currentState = DOCTYPE_STATE;
       return;
     }
-    if (strncmp(&input[input_ptr], "[CDATA[", 7) == 0) {
+    if (strncmp(&m_input[m_inputPtr], "[CDATA[", 7) == 0) {
       consume(7);
       // FIXME: handle CDATA properly
       // "this is a cdata-in-html-content parse error. Create a comment token
       // whose data is the "[CDATA[" string. Switch to the bogus comment state."
       create(std::make_shared<CommentToken>(L"[CDATA["));
-      current_state = BOGUS_COMMENT;
+      m_currentState = BOGUS_COMMENT;
       return;
     }
     // "This is an incorrectly-opened-comment parse error. Create a comment
     // token whose data is the empty string. Switch to the bogus comment state
     // (don't consume anything in the current state)."
     create(std::make_shared<CommentToken>());
-    current_state = BOGUS_COMMENT;
+    m_currentState = BOGUS_COMMENT;
     break;
   }
 
   // https://html.spec.whatwg.org/multipage/parsing.html#doctype-state
   case DOCTYPE_STATE: {
     consume();
-    if (isspace(current_char)) {
-      current_state = BEFORE_DOCTYPE_NAME;
+    if (isspace(m_currentChar)) {
+      m_currentState = BEFORE_DOCTYPE_NAME;
       return;
     }
-    if (current_char == '>') {
-      input_ptr--; // reconsume
-      current_state = BEFORE_DOCTYPE_NAME;
+    if (m_currentChar == '>') {
+      m_inputPtr--; // reconsume
+      m_currentState = BEFORE_DOCTYPE_NAME;
       return;
     }
-    if (current_char == EOF) {
+    if (m_currentChar == EOF) {
       // "This is an eof-in-doctype parse error. Create a new DOCTYPE token. Set
       // its force-quirks flag to on. Emit the current token. Emit an
       // end-of-file token."
@@ -481,42 +482,42 @@ void Tokenizer::stateTick() {
     }
     // "This is a missing-whitespace-before-doctype-name parse error. Reconsume
     // in the before DOCTYPE name state."
-    input_ptr--;
-    current_state = BEFORE_DOCTYPE_NAME;
+    m_inputPtr--;
+    m_currentState = BEFORE_DOCTYPE_NAME;
     break;
   }
 
   // https://html.spec.whatwg.org/multipage/parsing.html#before-doctype-name-state
   case BEFORE_DOCTYPE_NAME: {
     consume();
-    if (isspace(current_char)) {
+    if (isspace(m_currentChar)) {
       return; // ignore
     }
-    if (isupper(current_char)) {
-      create(std::make_shared<DoctypeToken>(current_char + 0x20));
-      current_state = DOCTYPE_NAME;
+    if (isupper(m_currentChar)) {
+      create(std::make_shared<DoctypeToken>(m_currentChar + 0x20));
+      m_currentState = DOCTYPE_NAME;
       return;
     }
-    if (current_char == 0) {
+    if (m_currentChar == 0) {
       // "This is an unexpected-null-character parse error. Create a new DOCTYPE
       // token. Set the token's name to a U+FFFD REPLACEMENT CHARACTER
       // character. Switch to the DOCTYPE name state."
       create(std::make_shared<DoctypeToken>(L"\ufffd"));
-      current_state = DOCTYPE_NAME;
+      m_currentState = DOCTYPE_NAME;
       return;
     }
-    if (current_char == '>') {
+    if (m_currentChar == '>') {
       // "This is a missing-doctype-name parse error. Create a new DOCTYPE
       // token. Set its force-quirks flag to on. Switch to the data state. Emit
       // the current token."
       // emit(DOCTYPE_TOKEN, "");
       auto token = std::make_shared<DoctypeToken>();
       token->setForceQuirks(true);
-      current_state = DATA;
+      m_currentState = DATA;
       emit(token);
       return;
     }
-    if (current_char == EOF) {
+    if (m_currentChar == EOF) {
       // "This is an eof-in-doctype parse error. Create a new DOCTYPE token. Set
       // its force-quirks flag to on. Emit the current token. Emit an
       // end-of-file token."
@@ -527,66 +528,66 @@ void Tokenizer::stateTick() {
       return;
     }
 
-    create(std::make_shared<DoctypeToken>(current_char));
-    current_state = DOCTYPE_NAME;
+    create(std::make_shared<DoctypeToken>(m_currentChar));
+    m_currentState = DOCTYPE_NAME;
     break;
   }
 
   // https://html.spec.whatwg.org/multipage/parsing.html#doctype-name-state
   case DOCTYPE_NAME: {
     consume();
-    if (isspace(current_char)) {
-      current_state = AFTER_DOCTYPE_NAME;
+    if (isspace(m_currentChar)) {
+      m_currentState = AFTER_DOCTYPE_NAME;
       return;
     }
-    if (current_char == '>') {
-      current_state = DATA;
+    if (m_currentChar == '>') {
+      m_currentState = DATA;
       emitCurrent();
     }
-    if (isupper(current_char)) {
-      assert(current_token->type() == DOCTYPE_TOKEN);
-      auto token = std::static_pointer_cast<DoctypeToken>(current_token);
-      token->appendName(current_char + 0x20);
+    if (isupper(m_currentChar)) {
+      assert(m_currentToken->type() == DOCTYPE_TOKEN);
+      auto token = std::static_pointer_cast<DoctypeToken>(m_currentToken);
+      token->appendName(m_currentChar + 0x20);
     }
-    if (current_char == 0) {
+    if (m_currentChar == 0) {
       // "This is an unexpected-null-character parse error. Append a U+FFFD
       // REPLACEMENT CHARACTER character to the current DOCTYPE token's name.
-      assert(current_token->type() == DOCTYPE_TOKEN);
-      auto token = std::static_pointer_cast<DoctypeToken>(current_token);
+      assert(m_currentToken->type() == DOCTYPE_TOKEN);
+      auto token = std::static_pointer_cast<DoctypeToken>(m_currentToken);
       token->appendName(L"\ufffd");
     }
-    if (current_char == EOF) {
+    if (m_currentChar == EOF) {
       // "This is an eof-in-doctype parse error. Set the current DOCTYPE token's
       // force-quirks flag to on. Emit the current DOCTYPE token. Emit an
       // end-of-file token."
-      assert(current_token->type() == DOCTYPE_TOKEN);
-      auto token = std::static_pointer_cast<DoctypeToken>(current_token);
+      assert(m_currentToken->type() == DOCTYPE_TOKEN);
+      auto token = std::static_pointer_cast<DoctypeToken>(m_currentToken);
       token->setForceQuirks(true);
       emitCurrent();
       emit(std::make_shared<EOFToken>());
     }
-    assert(current_token->type() == DOCTYPE_TOKEN);
-    auto token = std::static_pointer_cast<DoctypeToken>(current_token);
-    token->appendName(current_char);
+    assert(m_currentToken->type() == DOCTYPE_TOKEN);
+    auto token = std::static_pointer_cast<DoctypeToken>(m_currentToken);
+    token->appendName(m_currentChar);
     break;
   }
 
   // Unhandled state - missing implementation
   default: {
-    std::cerr << "[LibHTML] Unhandled state " << current_state << "\n";
+    std::cerr << "[LibHTML] Unhandled state " << m_currentState << "\n";
     throw 0;
   }
   }
 }
 
 void Tokenizer::emit(std::shared_ptr<Token> token) { tokens.push_back(token); }
-void Tokenizer::create(std::shared_ptr<Token> token) { current_token = token; }
-void Tokenizer::emitCurrent() { emit(current_token); }
+void Tokenizer::create(std::shared_ptr<Token> token) { m_currentToken = token; }
+void Tokenizer::emitCurrent() { emit(m_currentToken); }
 
-void Tokenizer::consume() { current_char = input[input_ptr++]; }
+void Tokenizer::consume() { m_currentChar = m_input[m_inputPtr++]; }
 void Tokenizer::consume(size_t howMany) {
-  input_ptr += howMany;
-  current_char = input[input_ptr];
+  m_inputPtr += howMany;
+  m_currentChar = m_input[m_inputPtr];
 }
 
 } // namespace LibHTML

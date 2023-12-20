@@ -1,3 +1,7 @@
-#pragma once
-#include "libhtml/ast.h"
+#ifndef LIBHTML_H
+#define LIBHTML_H
+
+#include "libhtml/parser.h"
 #include "libhtml/tokenizer.h"
+
+#endif

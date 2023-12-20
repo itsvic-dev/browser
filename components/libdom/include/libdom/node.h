@@ -1,4 +1,6 @@
-#pragma once
+#ifndef LIBDOM_NODE_H
+#define LIBDOM_NODE_H
+
 #include "libdom/domstring.h"
 #include <memory>
 #include <vector>
@@ -30,7 +32,9 @@ public:
 
   void appendChild(std::shared_ptr<Node> node);
 
-  virtual const std::string _name();
+  virtual const std::string name();
 };
 
 } // namespace LibDOM
+
+#endif

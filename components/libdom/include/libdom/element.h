@@ -1,4 +1,6 @@
-#pragma once
+#ifndef LIBDOM_ELEMENT_H
+#define LIBDOM_ELEMENT_H
+
 #include "libdom/domstring.h"
 #include "node.h"
 #include <memory>
@@ -35,3 +37,5 @@ class HTMLHtmlElement : public HTMLElement {};
 class HTMLHeadElement : public HTMLElement {};
 
 }; // namespace LibDOM
+
+#endif

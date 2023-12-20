@@ -1,4 +1,6 @@
-#pragma once
+#ifndef LIBDOM_COMMENT_H
+#define LIBDOM_COMMENT_H
+
 #include "characterdata.h"
 #include "domstring.h"
 #include "node.h"
@@ -11,3 +13,5 @@ public:
 };
 
 } // namespace LibDOM
+
+#endif

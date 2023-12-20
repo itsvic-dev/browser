@@ -6,13 +6,13 @@
 namespace LibDOM {
 
 void Node::appendChild(std::shared_ptr<Node> node) {
-  std::cout << "(dom) appending " << node->_name() << " to " << this->_name()
+  std::cout << "(dom) appending " << node->name() << " to " << this->name()
             << "\n";
   childNodes.push_back(node);
   node->parentNode = this;
 }
 
-const std::string Node::_name() {
+const std::string Node::name() {
   // get a pretty name of this class
   int status = -1;
   const char *name = typeid(*this).name();

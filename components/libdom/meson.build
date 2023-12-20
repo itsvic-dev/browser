@@ -1,6 +1,6 @@
-libdom_inc = include_directories('include')
+libdoinc = include_directories('include')
 
-libdom_lib = library(
+libdolib = library(
     'components-libdom',
 
     'comment.cpp',
@@ -8,11 +8,11 @@ libdom_lib = library(
     'node.cpp',
     'text.cpp',
     
-    include_directories: libdom_inc,
+    include_directories: libdoinc,
     install: true,
 )
 
 libdom = declare_dependency(
-    link_with: libdom_lib,
-    include_directories: libdom_inc,
+    link_with: libdolib,
+    include_directories: libdoinc,
 )

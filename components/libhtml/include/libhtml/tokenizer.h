@@ -1,4 +1,6 @@
-#pragma once
+#ifndef LIBHTML_TOKENIZER_H
+#define LIBHTML_TOKENIZER_H
+
 #include "libhtml/tokens.h"
 #include <cstddef>
 #include <memory>
@@ -55,15 +57,17 @@ private:
   void create(std::shared_ptr<Token> token);
   void emitCurrent();
 
-  TokenizerState current_state = DATA;
-  TokenizerState return_state = UNDEFINED_STATE;
+  TokenizerState m_currentState = DATA;
+  TokenizerState m_returnState = UNDEFINED_STATE;
 
-  const char *input = nullptr;
-  size_t input_size = 0;
-  size_t input_ptr = 0;
-  char current_char = 0;
+  const char *m_input = nullptr;
+  size_t m_inputSize = 0;
+  size_t m_inputPtr = 0;
+  char m_currentChar = 0;
 
-  std::shared_ptr<Token> current_token;
+  std::shared_ptr<Token> m_currentToken;
 };
 
 } // namespace LibHTML
+
+#endif
