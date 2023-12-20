@@ -45,6 +45,9 @@ public:
 
   void process(const wchar_t *input, size_t size, OnEmitFunction onEmit);
 
+  TokenizerState currentState = DATA;
+  TokenizerState returnState = UNDEFINED_STATE;
+
 private:
   void stateTick();
   void consume();
@@ -53,9 +56,6 @@ private:
   void create(std::unique_ptr<Token> token);
   void emitCurrent();
   OnEmitFunction m_onEmit;
-
-  TokenizerState m_currentState = DATA;
-  TokenizerState m_returnState = UNDEFINED_STATE;
 
   const wchar_t *m_input = nullptr;
   size_t m_inputSize = 0;

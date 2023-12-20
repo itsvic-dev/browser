@@ -35,17 +35,17 @@ void Tokenizer::process(const wchar_t *input, size_t size,
 }
 
 void Tokenizer::stateTick() {
-  switch (m_currentState) {
+  switch (currentState) {
   // https://html.spec.whatwg.org/multipage/parsing.html#data-state
   case DATA: {
     consume();
     switch (m_currentChar) {
     case '&':
-      m_returnState = DATA;
-      m_currentState = CHARACTER_REFERENCE;
+      returnState = DATA;
+      currentState = CHARACTER_REFERENCE;
       break;
     case '<':
-      m_currentState = TAG_OPEN;
+      currentState = TAG_OPEN;
       break;
     case 0:
       // "This is an unexpected-null-character parse error. Emit the current
@@ -65,17 +65,17 @@ void Tokenizer::stateTick() {
   case TAG_OPEN: {
     consume();
     if (m_currentChar == '!') {
-      m_currentState = MARKUP_DECLARATION;
+      currentState = MARKUP_DECLARATION;
       return;
     }
     if (m_currentChar == '/') {
-      m_currentState = END_TAG_OPEN;
+      currentState = END_TAG_OPEN;
       return;
     }
     if (isalpha(m_currentChar)) {
       create(std::make_unique<TagToken>(START_TAG));
       RECONSUME;
-      m_currentState = TAG_NAME;
+      currentState = TAG_NAME;
       return;
     }
     if (m_currentChar == '?') {
@@ -84,7 +84,7 @@ void Tokenizer::stateTick() {
       // bogus comment state."
       create(std::make_unique<CommentToken>());
       RECONSUME;
-      m_currentState = BOGUS_COMMENT;
+      currentState = BOGUS_COMMENT;
       return;
     }
     if (m_currentChar == EOF) {
@@ -98,7 +98,7 @@ void Tokenizer::stateTick() {
     // U+003C LESS-THAN SIGN character token. Reconsume in the data state."
     emit(std::make_unique<CharacterToken>('>'));
     RECONSUME;
-    m_currentState = DATA;
+    currentState = DATA;
     break;
   }
 
@@ -106,15 +106,15 @@ void Tokenizer::stateTick() {
   case TAG_NAME: {
     consume();
     if (isspace(m_currentChar)) {
-      m_currentState = BEFORE_ATTRIBUTE_NAME;
+      currentState = BEFORE_ATTRIBUTE_NAME;
       return;
     }
     if (m_currentChar == '/') {
-      m_currentState = SELF_CLOSING_START_TAG;
+      currentState = SELF_CLOSING_START_TAG;
       return;
     }
     if (m_currentChar == '>') {
-      m_currentState = DATA;
+      currentState = DATA;
       emitCurrent();
       return;
     }
@@ -156,12 +156,12 @@ void Tokenizer::stateTick() {
     if (isalpha(m_currentChar)) {
       create(std::make_unique<TagToken>(END_TAG));
       RECONSUME;
-      m_currentState = TAG_NAME;
+      currentState = TAG_NAME;
       return;
     }
     IF_IS('>') {
       // "This is a missing-end-tag-name parse error. Switch to the data state."
-      m_currentState = DATA;
+      currentState = DATA;
       return;
     }
     IF_IS(EOF) {
@@ -177,7 +177,7 @@ void Tokenizer::stateTick() {
     // comment token whose data is the empty string. Reconsume in the bogus
     // comment state."
     create(std::make_unique<CommentToken>());
-    m_currentState = BOGUS_COMMENT;
+    currentState = BOGUS_COMMENT;
     break;
   }
 
@@ -189,14 +189,14 @@ void Tokenizer::stateTick() {
     }
     if (m_currentChar == '/' || m_currentChar == '>' || m_currentChar == EOF) {
       RECONSUME;
-      m_currentState = AFTER_ATTRIBUTE_NAME;
+      currentState = AFTER_ATTRIBUTE_NAME;
       return;
     }
     IF_IS('=') {
       assert(m_currentToken->type() == START_TAG);
       auto token = CONVERT_TO(TagToken, m_currentToken);
       token->attributes.push_back({std::wstring(1, m_currentChar), L""});
-      m_currentState = ATTRIBUTE_NAME;
+      currentState = ATTRIBUTE_NAME;
       MOVE_TOKEN(token);
       return;
     }
@@ -204,7 +204,7 @@ void Tokenizer::stateTick() {
     auto token = CONVERT_TO(TagToken, m_currentToken);
     token->attributes.push_back({L"", L""});
     RECONSUME;
-    m_currentState = ATTRIBUTE_NAME;
+    currentState = ATTRIBUTE_NAME;
     MOVE_TOKEN(token);
     break;
   }
@@ -215,11 +215,11 @@ void Tokenizer::stateTick() {
     if (isspace(m_currentChar) || m_currentChar == '/' ||
         m_currentChar == '>' || m_currentChar == EOF) {
       RECONSUME;
-      m_currentState = AFTER_ATTRIBUTE_NAME;
+      currentState = AFTER_ATTRIBUTE_NAME;
       return;
     }
     IF_IS('=') {
-      m_currentState = BEFORE_ATTRIBUTE_VALUE;
+      currentState = BEFORE_ATTRIBUTE_VALUE;
       return;
     }
     if (isupper(m_currentChar)) {
@@ -252,11 +252,11 @@ void Tokenizer::stateTick() {
       return; // ignore
     }
     IF_IS('/') {
-      m_currentState = SELF_CLOSING_START_TAG;
+      currentState = SELF_CLOSING_START_TAG;
       return;
     }
     IF_IS('=') {
-      m_currentState = BEFORE_ATTRIBUTE_VALUE;
+      currentState = BEFORE_ATTRIBUTE_VALUE;
       return;
     }
     IF_IS(EOF) {
@@ -269,7 +269,7 @@ void Tokenizer::stateTick() {
     token->attributes.push_back({L"", L""});
     RECONSUME;
     MOVE_TOKEN(token);
-    m_currentState = ATTRIBUTE_NAME;
+    currentState = ATTRIBUTE_NAME;
     break;
   }
 
@@ -280,22 +280,22 @@ void Tokenizer::stateTick() {
       return; // ignore
     }
     IF_IS('"') {
-      m_currentState = ATTRIBUTE_VALUE_DOUBLE_QUOTE;
+      currentState = ATTRIBUTE_VALUE_DOUBLE_QUOTE;
       return;
     }
     IF_IS('\'') {
-      m_currentState = ATTRIBUTE_VALUE_SINGLE_QUOTE;
+      currentState = ATTRIBUTE_VALUE_SINGLE_QUOTE;
       return;
     }
     IF_IS('>') {
       // "This is a missing-attribute-value parse error. Switch to the data
       // state. Emit the current tag token."
-      m_currentState = DATA;
+      currentState = DATA;
       emitCurrent();
       return;
     }
     RECONSUME;
-    m_currentState = ATTRIBUTE_VALUE_UNQUOTED;
+    currentState = ATTRIBUTE_VALUE_UNQUOTED;
     break;
   }
 
@@ -303,12 +303,12 @@ void Tokenizer::stateTick() {
   case ATTRIBUTE_VALUE_DOUBLE_QUOTE: {
     consume();
     IF_IS('"') {
-      m_currentState = AFTER_ATTRIBUTE_VALUE_QUOTED;
+      currentState = AFTER_ATTRIBUTE_VALUE_QUOTED;
       return;
     }
     IF_IS('&') {
-      m_returnState = ATTRIBUTE_VALUE_DOUBLE_QUOTE;
-      m_currentState = CHARACTER_REFERENCE;
+      returnState = ATTRIBUTE_VALUE_DOUBLE_QUOTE;
+      currentState = CHARACTER_REFERENCE;
       return;
     }
     IF_IS(0) {
@@ -335,12 +335,12 @@ void Tokenizer::stateTick() {
   case ATTRIBUTE_VALUE_SINGLE_QUOTE: {
     consume();
     IF_IS('\'') {
-      m_currentState = AFTER_ATTRIBUTE_VALUE_QUOTED;
+      currentState = AFTER_ATTRIBUTE_VALUE_QUOTED;
       return;
     }
     IF_IS('&') {
-      m_returnState = ATTRIBUTE_VALUE_SINGLE_QUOTE;
-      m_currentState = CHARACTER_REFERENCE;
+      returnState = ATTRIBUTE_VALUE_SINGLE_QUOTE;
+      currentState = CHARACTER_REFERENCE;
       return;
     }
     IF_IS(0) {
@@ -367,16 +367,16 @@ void Tokenizer::stateTick() {
   case ATTRIBUTE_VALUE_UNQUOTED: {
     consume();
     if (isspace(m_currentChar)) {
-      m_currentState = BEFORE_ATTRIBUTE_NAME;
+      currentState = BEFORE_ATTRIBUTE_NAME;
       return;
     }
     IF_IS('&') {
-      m_returnState = ATTRIBUTE_VALUE_UNQUOTED;
-      m_currentState = CHARACTER_REFERENCE;
+      returnState = ATTRIBUTE_VALUE_UNQUOTED;
+      currentState = CHARACTER_REFERENCE;
       return;
     }
     IF_IS('>') {
-      m_currentState = DATA;
+      currentState = DATA;
       emitCurrent();
       return;
     }
@@ -404,15 +404,15 @@ void Tokenizer::stateTick() {
   case AFTER_ATTRIBUTE_VALUE_QUOTED: {
     consume();
     if (isspace(m_currentChar)) {
-      m_currentState = BEFORE_ATTRIBUTE_NAME;
+      currentState = BEFORE_ATTRIBUTE_NAME;
       return;
     }
     IF_IS('/') {
-      m_currentState = SELF_CLOSING_START_TAG;
+      currentState = SELF_CLOSING_START_TAG;
       return;
     }
     IF_IS('>') {
-      m_currentState = DATA;
+      currentState = DATA;
       emitCurrent();
       return;
     }
@@ -424,7 +424,7 @@ void Tokenizer::stateTick() {
     // "This is a missing-whitespace-between-attributes parse error. Reconsume
     // in the before attribute name state."
     RECONSUME;
-    m_currentState = BEFORE_ATTRIBUTE_NAME;
+    currentState = BEFORE_ATTRIBUTE_NAME;
     break;
   }
 
@@ -445,7 +445,7 @@ void Tokenizer::stateTick() {
     // "This is an unexpected-solidus-in-tag parse error. Reconsume in the
     // before attribute name state."
     RECONSUME;
-    m_currentState = BEFORE_ATTRIBUTE_NAME;
+    currentState = BEFORE_ATTRIBUTE_NAME;
     break;
   }
 
@@ -453,12 +453,12 @@ void Tokenizer::stateTick() {
     if (wcsncmp(&m_input[m_inputPtr], L"--", 2) == 0) {
       consume(2);
       emit(std::make_unique<CommentToken>());
-      m_currentState = COMMENT_START;
+      currentState = COMMENT_START;
       return;
     }
     if (wcsncasecmp(&m_input[m_inputPtr], L"DOCTYPE", 7) == 0) {
       consume(7);
-      m_currentState = DOCTYPE_STATE;
+      currentState = DOCTYPE_STATE;
       return;
     }
     if (wcsncmp(&m_input[m_inputPtr], L"[CDATA[", 7) == 0) {
@@ -467,14 +467,14 @@ void Tokenizer::stateTick() {
       // "this is a cdata-in-html-content parse error. Create a comment token
       // whose data is the "[CDATA[" string. Switch to the bogus comment state."
       create(std::make_unique<CommentToken>(L"[CDATA["));
-      m_currentState = BOGUS_COMMENT;
+      currentState = BOGUS_COMMENT;
       return;
     }
     // "This is an incorrectly-opened-comment parse error. Create a comment
     // token whose data is the empty string. Switch to the bogus comment state
     // (don't consume anything in the current state)."
     create(std::make_unique<CommentToken>());
-    m_currentState = BOGUS_COMMENT;
+    currentState = BOGUS_COMMENT;
     break;
   }
 
@@ -482,12 +482,12 @@ void Tokenizer::stateTick() {
   case DOCTYPE_STATE: {
     consume();
     if (isspace(m_currentChar)) {
-      m_currentState = BEFORE_DOCTYPE_NAME;
+      currentState = BEFORE_DOCTYPE_NAME;
       return;
     }
     if (m_currentChar == '>') {
       RECONSUME;
-      m_currentState = BEFORE_DOCTYPE_NAME;
+      currentState = BEFORE_DOCTYPE_NAME;
       return;
     }
     if (m_currentChar == EOF) {
@@ -503,7 +503,7 @@ void Tokenizer::stateTick() {
     // "This is a missing-whitespace-before-doctype-name parse error. Reconsume
     // in the before DOCTYPE name state."
     RECONSUME;
-    m_currentState = BEFORE_DOCTYPE_NAME;
+    currentState = BEFORE_DOCTYPE_NAME;
     break;
   }
 
@@ -515,7 +515,7 @@ void Tokenizer::stateTick() {
     }
     if (isupper(m_currentChar)) {
       create(std::make_unique<DoctypeToken>(m_currentChar + 0x20));
-      m_currentState = DOCTYPE_NAME;
+      currentState = DOCTYPE_NAME;
       return;
     }
     if (m_currentChar == 0) {
@@ -523,7 +523,7 @@ void Tokenizer::stateTick() {
       // token. Set the token's name to a U+FFFD REPLACEMENT CHARACTER
       // character. Switch to the DOCTYPE name state."
       create(std::make_unique<DoctypeToken>(L"\ufffd"));
-      m_currentState = DOCTYPE_NAME;
+      currentState = DOCTYPE_NAME;
       return;
     }
     if (m_currentChar == '>') {
@@ -533,7 +533,7 @@ void Tokenizer::stateTick() {
       // emit(DOCTYPE_TOKEN, "");
       auto token = std::make_unique<DoctypeToken>();
       token->setForceQuirks(true);
-      m_currentState = DATA;
+      currentState = DATA;
       emit(std::move(token));
       return;
     }
@@ -549,7 +549,7 @@ void Tokenizer::stateTick() {
     }
 
     create(std::make_unique<DoctypeToken>(m_currentChar));
-    m_currentState = DOCTYPE_NAME;
+    currentState = DOCTYPE_NAME;
     break;
   }
 
@@ -557,11 +557,11 @@ void Tokenizer::stateTick() {
   case DOCTYPE_NAME: {
     consume();
     if (isspace(m_currentChar)) {
-      m_currentState = AFTER_DOCTYPE_NAME;
+      currentState = AFTER_DOCTYPE_NAME;
       return;
     }
     if (m_currentChar == '>') {
-      m_currentState = DATA;
+      currentState = DATA;
       emitCurrent();
     }
     if (isupper(m_currentChar)) {
@@ -598,7 +598,7 @@ void Tokenizer::stateTick() {
 
   // Unhandled state - missing implementation
   default: {
-    std::cerr << "[LibHTML] Unhandled state " << m_currentState << "\n";
+    std::cerr << "[LibHTML] Unhandled state " << currentState << "\n";
     throw 0;
   }
   }
