@@ -1,4 +1,5 @@
 #include "libhtml/parser.h"
+#include <exception>
 #include <fstream>
 #include <iostream>
 
@@ -18,12 +19,26 @@ int main(int argc, char **argv) {
     size_t read = file.readsome(chunk, READ_CHUNK_SIZE);
     if (read == 0)
       break;
-    parser.parse(chunk, read);
+    try {
+      parser.parse(chunk, read);
+    } catch (std::exception &exc) {
+      std::cout << "[TEST FAIL] An exception has occurred during LibHTML "
+                   "parsing of test case: "
+                << exc.what() << std::endl;
+      return -1;
+    }
   }
 
   // let the parser know we're EOF'd now
   const wchar_t eof[] = {EOF};
-  parser.parse(eof, 1);
+  try {
+    parser.parse(eof, 1);
+  } catch (std::exception &exc) {
+    std::cout << "[TEST FAIL] An exception has occurred during LibHTML parsing "
+                 "of implied EOF: "
+              << exc.what() << std::endl;
+    return -1;
+  }
 
   return 0;
 }

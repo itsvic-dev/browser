@@ -16,6 +16,7 @@ namespace LibHTML {
 #define NS_HTML L"http://www.w3.org/1999/xhtml"
 
 enum ParserMode {
+  UNDEFINED_MODE,
   INITIAL,
   BEFORE_HTML,
   BEFORE_HEAD,
@@ -110,15 +111,17 @@ private:
 
   Tokenizer m_tokenizer;
   ParserMode m_insertionMode = INITIAL;
-  ParserMode m_originalInsertionMode = INITIAL;
+  ParserMode m_originalInsertionMode = UNDEFINED_MODE;
   /** Stack of open elements */
   std::vector<std::shared_ptr<LibDOM::Node>> m_nodeStack;
+  std::vector<std::shared_ptr<LibDOM::Node>> m_activeFormattingElems;
 
   std::shared_ptr<LibDOM::Node> m_headElementPointer = nullptr;
   std::shared_ptr<LibDOM::Node> m_formElementPointer = nullptr;
 
   bool m_scriptingFlag = false;
   bool m_framesetOk = true;
+  bool m_isParsing = true;
 };
 
 } // namespace LibHTML

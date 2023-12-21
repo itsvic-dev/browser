@@ -48,9 +48,15 @@ void Parser::parse(const char *text, size_t textLen) {
 }
 
 void Parser::parse(const wchar_t *text, size_t textLen) {
-  m_tokenizer.process(text, textLen, [this](std::unique_ptr<Token> token) {
-    this->process(std::move(token));
-  });
+  try {
+    m_tokenizer.process(text, textLen, [this](std::unique_ptr<Token> token) {
+      if (!m_isParsing)
+        throw 0;
+      this->process(std::move(token));
+    });
+  } catch (int &a) {
+    return;
+  }
 }
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#the-initial-insertion-mode */
@@ -754,7 +760,13 @@ void Parser::inBody(std::unique_ptr<Token> token) {
       // that is an HTML element and whose tag name is one of "h1", "h2", "h3",
       // "h4", "h5", or "h6", then this is a parse error; ignore the token.
       generateImpliedEndTags();
-      throw StringException("TODO: in body: hN end tags (too lazy)");
+      while (true) {
+        auto name = CURRENT_NODE->nodeName;
+        m_nodeStack.pop_back();
+        if (IS_ONE_OF(name, names2))
+          break;
+      }
+      return;
     }
 
     const std::vector<std::wstring> names4 = {
@@ -834,6 +846,9 @@ void Parser::process(std::unique_ptr<Token> token) {
     MODE(AFTER_HEAD, afterHead)
     MODE(IN_BODY, inBody)
     MODE(TEXT, text)
+    case AFTER_BODY:
+      // FIXME: implement
+      break;
     default:
       std::cout << "unknown insertion mode encountered: " << m_insertionMode
                 << std::endl;
@@ -851,6 +866,8 @@ void Parser::resetInsertionModeAppropriately() {
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#reconstruct-the-active-formatting-elements */
 void Parser::reconstructActiveFormattingElements() {
+  if (m_activeFormattingElems.empty())
+    return;
   throw StringException("TODO: Parser::reconstructActiveFormattingElements");
 }
 
@@ -954,13 +971,26 @@ void Parser::genericRcdataParse(std::unique_ptr<TagToken> token) {
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#stop-parsing */
 void Parser::stopParsing() {
-  throw StringException("TODO: Parser::stopParsing");
+  m_isParsing = false;
+  m_insertionMode = UNDEFINED_MODE;
+  // update document readiness to interactive
+  m_nodeStack.clear();
+  // do script stuff
 }
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#generate-implied-end-tags */
 void Parser::generateImpliedEndTags() {
-  throw StringException("TODO: Parser::generateImpliedEndTags");
+  const std::vector<std::wstring> endTags = {
+      L"dd", L"dt", L"li", L"optgroup", L"option",
+      L"p",  L"rb", L"rp", L"rt",       L"rtc"};
+  while (true) {
+    auto name = CURRENT_NODE->nodeName;
+    if (std::find(endTags.begin(), endTags.end(), name) == endTags.end())
+      return;
+    m_nodeStack.pop_back();
+  }
 }
+
 void Parser::generateImpliedEndTagsExceptFor(std::wstring tagName) {
   (void)tagName;
   throw StringException("TODO: Parser::generateImpliedEndTagsExceptFor");
