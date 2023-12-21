@@ -32,6 +32,7 @@ libhtml_canParse_test = executable(
 
 test_inputs = [
     'basic.html',
+    'eofInText.html',
     'headInHead.html',
     'invalidDoctype.html',
     # 'missingDoctype.html',  # segfaults
