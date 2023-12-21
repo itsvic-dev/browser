@@ -52,6 +52,7 @@ public:
   std::wstring name();
   void appendName(char c);
   void appendName(const std::wstring name);
+  void setName(const std::wstring name);
 
   bool selfClosing = false;
   std::vector<Attribute> attributes = {};

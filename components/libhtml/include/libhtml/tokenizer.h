@@ -16,6 +16,7 @@ enum TokenizerState : int {
   RCDATA,
   RAWTEXT,
   SCRIPT_DATA,
+  PLAINTEXT,
   TAG_OPEN,
   TAG_NAME,
   END_TAG_OPEN,

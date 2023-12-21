@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <curl/curl.h>
 #include <curl/easy.h>
+#include <exception>
 #include <iostream>
 
 LibHTML::Parser parser;
@@ -12,7 +13,14 @@ size_t writeCallback(char *ptr, size_t size, size_t nmemb, void *userdata) {
   (void)userdata;
   (void)size;
   assert(size == 1);
-  parser.parse(ptr, nmemb);
+  try {
+    parser.parse(ptr, nmemb);
+  } catch (std::exception &exc) {
+    std::cout
+        << "[FATAL ERROR] An exception has occurred during LibHTML parsing: "
+        << exc.what() << "\n";
+    return -1;
+  }
   return nmemb;
 }
 
@@ -37,7 +45,7 @@ int main(int argc, char **argv) {
   curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, writeCallback);
   auto success = curl_easy_perform(handle);
   if (success != CURLE_OK) {
-    std::cout << "failed to fetch: " << curl_easy_strerror(success) << "\n";
+    return -1;
   }
   // let the tokenizer know we're EOF'd now
   const wchar_t eof[] = {EOF};

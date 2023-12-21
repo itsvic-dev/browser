@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cassert>
 #include <codecvt>
+#include <cwchar>
 #include <exception>
 #include <iostream>
 #include <locale>
@@ -156,8 +157,8 @@ void Parser::beforeHead(std::unique_ptr<Token> token) {
   if (token->type() == START_TAG) {
     auto tagToken = CONVERT_TO(TagToken, token);
     if (tagToken->name() == L"html") {
-      throw StringException("TODO: Process the token using the rules for the "
-                            "\"in body\" insertion mode.");
+      inBody(std::move(tagToken));
+      return;
     }
 
     if (tagToken->name() == L"head") {
@@ -210,8 +211,8 @@ void Parser::inHead(std::unique_ptr<Token> token) {
   if (token->type() == START_TAG) {
     auto tagToken = CONVERT_TO(TagToken, token);
     if (tagToken->name() == L"html") {
-      throw StringException("TODO: Process the token using the rules for the "
-                            "\"in body\" insertion mode.");
+      inBody(std::move(tagToken));
+      return;
     }
 
     if (tagToken->name() == L"template") {
@@ -316,8 +317,8 @@ void Parser::afterHead(std::unique_ptr<Token> token) {
   if (token->type() == START_TAG) {
     auto tagToken = CONVERT_TO(TagToken, token);
     if (tagToken->name() == L"html") {
-      throw StringException("TODO: Process the token using the rules for the "
-                            "\"in body\" insertion mode.");
+      inBody(std::move(tagToken));
+      return;
     }
     if (tagToken->name() == L"body") {
       INSERT_HTML_ELEMENT(tagToken);
@@ -361,8 +362,433 @@ anythingElse:
   REPROCESS;
 }
 
-/** https://html.spec.whatwg.org/multipage/parsing.html#the-after-head-insertion-mode */
-void Parser::inBody(std::unique_ptr<Token> token) { (void)token; }
+/** https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inbody */
+void Parser::inBody(std::unique_ptr<Token> token) {
+  if (token->type() == CHARACTER) {
+    auto charToken = CONVERT_TO(CharacterToken, token);
+    if (charToken->character() == 0) {
+      return;
+    }
+    if (isspace(charToken->character())) {
+      reconstructActiveFormattingElements();
+      insertCharacter(std::move(charToken));
+      return;
+    }
+    reconstructActiveFormattingElements();
+    insertCharacter(std::move(charToken));
+    m_framesetOk = false;
+    return;
+  }
+
+  if (token->type() == COMMENT) {
+    insertComment(std::move(token), CURRENT_NODE);
+    return;
+  }
+
+  if (token->type() == DOCTYPE_TOKEN)
+    return;
+
+  if (token->type() == START_TAG) {
+    auto tagToken = CONVERT_TO(TagToken, token);
+    if (tagToken->name() == L"html") {
+      for (const auto &attr : tagToken->attributes) {
+        auto htmlElem = std::static_pointer_cast<LibDOM::HTMLHtmlElement>(
+            *m_nodeStack.begin());
+        if (htmlElem->hasAttribute(attr.name))
+          continue;
+        htmlElem->setAttribute(attr.name, attr.value);
+      }
+      return;
+    }
+
+    const std::vector<std::wstring> names = {
+        L"base",     L"basefont", L"bgsound", L"link",     L"meta",
+        L"noframes", L"script",   L"style",   L"template", L"title"};
+    auto name = tagToken->name();
+    if (IS_ONE_OF(name, names)) {
+      inHead(std::move(tagToken));
+      return;
+    }
+
+    const std::vector<std::wstring> names2 = {
+        L"address",  L"article",    L"aside",   L"blockquote", L"center",
+        L"details",  L"dialog",     L"dir",     L"div",        L"dl",
+        L"fieldset", L"figcaption", L"figure",  L"footer",     L"header",
+        L"hgroup",   L"main",       L"menu",    L"nav",        L"ol",
+        L"p",        L"search",     L"section", L"summary",    L"ul"};
+    if (IS_ONE_OF(name, names2)) {
+      // FIXME: If the stack of open elements has a p element in button scope,
+      // then close a p element.
+      INSERT_HTML_ELEMENT(tagToken);
+      return;
+    }
+
+    const std::vector<std::wstring> names3 = {L"h1", L"h2", L"h3",
+                                              L"h4", L"h5", L"h6"};
+    if (IS_ONE_OF(name, names3)) {
+      // FIXME: If the stack of open elements has a p element in button scope,
+      // then close a p element.
+      auto currentNodeName = CURRENT_NODE->nodeName;
+      if (IS_ONE_OF(currentNodeName, names3)) {
+        m_nodeStack.pop_back();
+      }
+      INSERT_HTML_ELEMENT(tagToken);
+      return;
+    }
+
+    if (name == L"pre" || name == L"listing") {
+      // FIXME: If the stack of open elements has a p element in button scope,
+      // then close a p element.
+
+      INSERT_HTML_ELEMENT(tagToken);
+      // FIXME: If the next token is a U+000A LINE FEED (LF) character token,
+      // then ignore that token and move on to the next one.
+      m_framesetOk = false;
+      return;
+    }
+
+    if (name == L"form") {
+      if (m_formElementPointer != nullptr)
+        return;
+      // FIXME: If the stack of open elements has a p element in button scope,
+      // then close a p element.
+      auto elem = INSERT_HTML_ELEMENT(tagToken);
+      m_formElementPointer = elem;
+      return;
+    }
+
+    if (name == L"li") {
+      m_framesetOk = false;
+      throw StringException("todo: in body: li tag (too lazy)");
+    }
+
+    if (name == L"dd" || name == L"dt") {
+      m_framesetOk = false;
+      throw StringException("todo: in body: dd/dt tag (too lazy)");
+    }
+
+    if (name == L"plaintext") {
+      // FIXME: If the stack of open elements has a p element in button scope,
+      // then close a p element.
+      INSERT_HTML_ELEMENT(tagToken);
+      m_tokenizer.currentState = PLAINTEXT;
+      return;
+    }
+
+    if (name == L"button") {
+      // FIXME: If the stack of open elements has a button element in scope,
+      // then run these substeps: ...
+
+      reconstructActiveFormattingElements();
+      INSERT_HTML_ELEMENT(tagToken);
+      m_framesetOk = false;
+      return;
+    }
+
+    if (name == L"body") {
+      if (m_nodeStack.size() == 1 || m_nodeStack[2]->nodeName != L"body")
+        return;
+
+      // TODO: html body element
+      m_framesetOk = false;
+      auto body = std::static_pointer_cast<LibDOM::HTMLElement>(m_nodeStack[2]);
+      for (const auto &attr : tagToken->attributes) {
+        if (body->hasAttribute(attr.name))
+          continue;
+        body->setAttribute(attr.name, attr.value);
+      }
+      return;
+    }
+
+    if (name == L"frameset") {
+      throw StringException("TODO: in body: frameset start tag");
+    }
+
+    if (name == L"a") {
+      throw StringException("TODO: in body: a start tag (fucking bullshit wall "
+                            "of text i hate you)");
+    }
+
+    const std::vector<std::wstring> names4 = {
+        L"b", L"big",   L"code",   L"em",     L"font", L"i",
+        L"s", L"small", L"strike", L"strong", L"tt",   L"u"};
+    if (IS_ONE_OF(name, names4)) {
+      reconstructActiveFormattingElements();
+      INSERT_HTML_ELEMENT(tagToken);
+      return;
+    }
+
+    if (name == L"nobr") {
+      reconstructActiveFormattingElements();
+      // FIXME: If the stack of open elements has a nobr element in scope, then
+      // this is a parse error; run the adoption agency algorithm for the token,
+      // then once again reconstruct the active formatting elements, if any.
+      auto elem = INSERT_HTML_ELEMENT(tagToken);
+      pushOntoActiveFormattingElems(elem);
+      return;
+    }
+
+    if (name == L"applet" || name == L"marquee" || name == L"object") {
+      reconstructActiveFormattingElements();
+      INSERT_HTML_ELEMENT(tagToken);
+      // FIXME: Insert a marker at the end of the list of active formatting
+      // elements.
+      m_framesetOk = false;
+    }
+
+    if (name == L"table") {
+      // FIXME: If the Document is not set to quirks mode, and the stack of open
+      // elements has a p element in button scope, then close a p element.
+      INSERT_HTML_ELEMENT(tagToken);
+      m_framesetOk = false;
+      m_insertionMode = IN_TABLE;
+      return;
+    }
+
+    if (name == L"area" || name == L"br" || name == L"embed" ||
+        name == L"img" || name == L"keygen" || name == L"wbr") {
+      reconstructActiveFormattingElements();
+      INSERT_HTML_ELEMENT(tagToken);
+      m_nodeStack.pop_back();
+      m_framesetOk = false;
+      return;
+    }
+
+    if (name == L"input") {
+      reconstructActiveFormattingElements();
+      auto elem = std::static_pointer_cast<LibDOM::HTMLElement>(
+          INSERT_HTML_ELEMENT(tagToken));
+      m_nodeStack.pop_back();
+      if (!elem->hasAttribute(L"type") ||
+          wcscasecmp(elem->getAttribute(L"type").c_str(), L"hidden") != 0) {
+        m_framesetOk = false;
+      }
+      return;
+    }
+
+    if (name == L"hr") {
+      // FIXME: If the stack of open elements has a p element in button scope,
+      // then close a p element.
+      INSERT_HTML_ELEMENT(tagToken);
+      m_nodeStack.pop_back();
+      m_framesetOk = false;
+      return;
+    }
+
+    if (name == L"image") {
+      tagToken->setName(L"img");
+      process(std::move(tagToken));
+      return;
+    }
+
+    if (name == L"textarea") {
+      INSERT_HTML_ELEMENT(tagToken);
+      // FIXME: If the next token is a U+000A LINE FEED (LF) character token,
+      // then ignore that token and move on to the next one. (Newlines at the
+      // start of textarea elements are ignored as an authoring convenience.)
+      m_tokenizer.currentState = RCDATA;
+      m_originalInsertionMode = m_insertionMode;
+      m_framesetOk = false;
+      m_insertionMode = TEXT;
+      return;
+    }
+
+    if (name == L"xmp") {
+      // FIXME: If the stack of open elements has a p element in button scope,
+      // then close a p element.
+      reconstructActiveFormattingElements();
+      m_framesetOk = false;
+      genericRawTextParse(std::move(tagToken));
+      return;
+    }
+
+    if (name == L"iframe") {
+      m_framesetOk = false;
+      genericRawTextParse(std::move(tagToken));
+      return;
+    }
+
+    if (name == L"noembed" || (name == L"noscript" && m_scriptingFlag)) {
+      genericRawTextParse(std::move(tagToken));
+      return;
+    }
+
+    if (name == L"select") {
+      reconstructActiveFormattingElements();
+      INSERT_HTML_ELEMENT(tagToken);
+      m_framesetOk = false;
+      if (m_insertionMode == IN_TABLE || m_insertionMode == IN_CAPTION ||
+          m_insertionMode == IN_TABLE_BODY || m_insertionMode == IN_ROW ||
+          m_insertionMode == IN_CELL)
+        m_insertionMode = IN_SELECT_IN_TABLE;
+      else
+        m_insertionMode = IN_SELECT;
+      return;
+    }
+
+    if (name == L"optgroup" || name == L"option") {
+      if (CURRENT_NODE->nodeName == L"option")
+        m_nodeStack.pop_back();
+      reconstructActiveFormattingElements();
+      INSERT_HTML_ELEMENT(tagToken);
+      return;
+    }
+
+    if (name == L"rb" || name == L"rtc") {
+      // FIXME: If the stack of open elements has a ruby element in scope, then
+      // generate implied end tags.
+      INSERT_HTML_ELEMENT(tagToken);
+      return;
+    }
+
+    if (name == L"rp" || name == L"rt") {
+      // FIXME: If the stack of open elements has a ruby element in scope, then
+      // generate implied end tags, except for rtc elements.
+      INSERT_HTML_ELEMENT(tagToken);
+      return;
+    }
+
+    if (name == L"math") {
+      throw StringException("TODO: in body: MathML support");
+    }
+
+    if (name == L"SVG") {
+      throw StringException("TODO: in body: SVG support");
+    }
+
+    const std::vector<std::wstring> names5 = {
+        L"caption", L"col",   L"colgroup", L"frame", L"head", L"tbody",
+        L"td",      L"tfoot", L"th",       L"thead", L"tr"};
+    if (IS_ONE_OF(name, names5)) {
+      return;
+    }
+
+    reconstructActiveFormattingElements();
+    INSERT_HTML_ELEMENT(tagToken);
+  }
+
+  if (token->type() == END_OF_FILE) {
+    stopParsing();
+    return;
+  }
+
+  if (token->type() == END_TAG) {
+    auto tagToken = CONVERT_TO(TagToken, token);
+    if (tagToken->name() == L"body") {
+      if (std::find_if(m_nodeStack.begin(), m_nodeStack.end(),
+                       [](std::shared_ptr<LibDOM::Node> node) {
+                         return node->nodeName == L"body";
+                       }) == m_nodeStack.end()) {
+        return;
+      }
+      m_insertionMode = AFTER_BODY;
+      return;
+    }
+
+    if (tagToken->name() == L"html") {
+      if (std::find_if(m_nodeStack.begin(), m_nodeStack.end(),
+                       [](std::shared_ptr<LibDOM::Node> node) {
+                         return node->nodeName == L"body";
+                       }) == m_nodeStack.end()) {
+        return;
+      }
+      m_insertionMode = AFTER_BODY;
+      token = std::move(tagToken);
+      REPROCESS;
+      return;
+    }
+
+    auto name = tagToken->name();
+    const std::vector<std::wstring> names = {
+        L"address",  L"article",    L"aside",   L"blockquote", L"center",
+        L"details",  L"dialog",     L"dir",     L"div",        L"dl",
+        L"fieldset", L"figcaption", L"figure",  L"footer",     L"header",
+        L"hgroup",   L"main",       L"menu",    L"nav",        L"ol",
+        L"p",        L"search",     L"section", L"summary",    L"ul"};
+    if (IS_ONE_OF(name, names)) {
+      throw StringException(
+          "TODO: If the stack of open elements does not have an element in "
+          "scope that is an HTML element with the same tag name as that of the "
+          "token, then this is a parse error; ignore the token.");
+    }
+
+    if (name == L"form") {
+      auto node = m_formElementPointer;
+      m_formElementPointer = nullptr;
+      if (node == nullptr
+          /* FIXME: or node stack does not have <node> in scope */)
+        return;
+      generateImpliedEndTags();
+      m_nodeStack.erase(
+          std::find(m_nodeStack.begin(), m_nodeStack.end(), node));
+      return;
+    }
+
+    if (name == L"p") {
+      // FIXME: If the stack of open elements does not have a p element in
+      // button scope, then this is a parse error; insert an HTML element for a
+      // "p" start tag token with no attributes.
+      closePElem();
+      return;
+    }
+
+    if (name == L"li") {
+      // FIXME: If the stack of open elements does not have an li element in
+      // list item scope, then this is a parse error; ignore the token.
+      generateImpliedEndTagsExceptFor(L"li");
+      throw StringException("TODO: in body: li end tag (too lazy)");
+    }
+
+    if (name == L"dd" || name == L"dt") {
+      // FIXME: If the stack of open elements does not have an element in scope
+      // that is an HTML element with the same tag name as that of the token,
+      // then this is a parse error; ignore the token.
+      generateImpliedEndTagsExceptFor(name);
+      throw StringException("TODO: in body: dd/dt end tags (too lazy)");
+    }
+
+    const std::vector<std::wstring> names2 = {L"h1", L"h2", L"h3",
+                                              L"h4", L"h5", L"h6"};
+    if (IS_ONE_OF(name, names2)) {
+      // FIXME: If the stack of open elements does not have an element in scope
+      // that is an HTML element and whose tag name is one of "h1", "h2", "h3",
+      // "h4", "h5", or "h6", then this is a parse error; ignore the token.
+      generateImpliedEndTags();
+      throw StringException("TODO: in body: hN end tags (too lazy)");
+    }
+
+    const std::vector<std::wstring> names4 = {
+        L"b", L"big",   L"code",   L"em",     L"font", L"i",
+        L"s", L"small", L"strike", L"strong", L"tt",   L"u"};
+    if (IS_ONE_OF(name, names4)) {
+      throw StringException("TODO: in body: formatting end tags");
+    }
+
+    if (name == L"applet" || name == L"marquee" || name == L"object") {
+      // FIXME: If the stack of open elements does not have an element in scope
+      // that is an HTML element with the same tag name as that of the token,
+      // then this is a parse error; ignore the token.
+      generateImpliedEndTags();
+      throw StringException("TODO: in body: marquee end tag (too lazy)");
+    }
+
+    auto node = CURRENT_NODE;
+  loop:
+    if (node->nodeName == tagToken->name()) {
+      generateImpliedEndTagsExceptFor(tagToken->name());
+      while (CURRENT_NODE != node)
+        m_nodeStack.pop_back();
+      m_nodeStack.pop_back();
+      return;
+    }
+    // FIXME: Otherwise, if node is in the special category, then this is a
+    // parse error; ignore the token, and return.
+    node = m_nodeStack.end()[-2];
+    goto loop;
+  }
+
+  assert(!"unreachable");
+}
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incdata
  */
@@ -524,6 +950,29 @@ void Parser::genericRcdataParse(std::unique_ptr<TagToken> token) {
   m_tokenizer.currentState = RCDATA;
   m_originalInsertionMode = m_insertionMode;
   m_insertionMode = TEXT;
+}
+
+/** https://html.spec.whatwg.org/multipage/parsing.html#stop-parsing */
+void Parser::stopParsing() {
+  throw StringException("TODO: Parser::stopParsing");
+}
+
+/** https://html.spec.whatwg.org/multipage/parsing.html#generate-implied-end-tags */
+void Parser::generateImpliedEndTags() {
+  throw StringException("TODO: Parser::generateImpliedEndTags");
+}
+void Parser::generateImpliedEndTagsExceptFor(std::wstring tagName) {
+  (void)tagName;
+  throw StringException("TODO: Parser::generateImpliedEndTagsExceptFor");
+}
+
+/** https://html.spec.whatwg.org/multipage/parsing.html#close-a-p-element */
+void Parser::closePElem() { throw StringException("TODO: Parser::closePElem"); }
+
+/** https://html.spec.whatwg.org/multipage/parsing.html#push-onto-the-list-of-active-formatting-elements */
+void Parser::pushOntoActiveFormattingElems(std::shared_ptr<LibDOM::Node> node) {
+  (void)node;
+  throw StringException("TODO: Parser::pushOntoActiveFormattingElems");
 }
 
 } // namespace LibHTML

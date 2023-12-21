@@ -95,6 +95,19 @@ private:
   /** https://html.spec.whatwg.org/multipage/parsing.html#generic-rcdata-element-parsing-algorithm */
   void genericRcdataParse(std::unique_ptr<TagToken> token);
 
+  /** https://html.spec.whatwg.org/multipage/parsing.html#stop-parsing */
+  void stopParsing();
+
+  /** https://html.spec.whatwg.org/multipage/parsing.html#generate-implied-end-tags */
+  void generateImpliedEndTags();
+  void generateImpliedEndTagsExceptFor(std::wstring tagName);
+
+  /** https://html.spec.whatwg.org/multipage/parsing.html#close-a-p-element */
+  void closePElem();
+
+  /** https://html.spec.whatwg.org/multipage/parsing.html#push-onto-the-list-of-active-formatting-elements */
+  void pushOntoActiveFormattingElems(std::shared_ptr<LibDOM::Node> node);
+
   Tokenizer m_tokenizer;
   ParserMode m_insertionMode = INITIAL;
   ParserMode m_originalInsertionMode = INITIAL;

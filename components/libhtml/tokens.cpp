@@ -16,6 +16,7 @@ TokenType TagToken::type() { return m_type; }
 std::wstring TagToken::name() { return m_name; }
 void TagToken::appendName(char c) { m_name += c; }
 void TagToken::appendName(const std::wstring name) { m_name += name; }
+void TagToken::setName(const std::wstring name) { m_name += name; }
 
 CommentToken::CommentToken(std::wstring data) : m_data(data) {}
 TokenType CommentToken::type() { return COMMENT; }

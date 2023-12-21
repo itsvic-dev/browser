@@ -8,6 +8,16 @@ std::shared_ptr<Attr> NamedNodeMap::item(unsigned long index) {
   return m_attrs[index];
 }
 
+std::shared_ptr<Attr> NamedNodeMap::getNamedItem(DOMString qualifiedName) {
+  auto it = std::find_if(m_attrs.begin(), m_attrs.end(),
+                         [qualifiedName](std::shared_ptr<Attr> attr) {
+                           return attr->name == qualifiedName;
+                         });
+  if (it == m_attrs.end())
+    return nullptr;
+  return *it;
+}
+
 std::shared_ptr<Attr> NamedNodeMap::setNamedItem(std::shared_ptr<Attr> attr) {
   std::shared_ptr<Attr> ret;
   auto it = std::find_if(

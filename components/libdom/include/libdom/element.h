@@ -21,6 +21,7 @@ public:
   DOMString getAttribute(DOMString qualifiedName);
   void setAttribute(DOMString qualifiedName, DOMString value);
   void removeAttribute(DOMString qualifiedName);
+  bool hasAttribute(DOMString qualifiedName);
 };
 
 class HTMLElement : public Element {};
