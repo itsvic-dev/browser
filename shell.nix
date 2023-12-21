@@ -4,5 +4,6 @@ stdenv.mkDerivation {
     buildInputs = [
         pkg-config
         curl
+        lcov
     ];
 }

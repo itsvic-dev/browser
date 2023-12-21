@@ -24,23 +24,30 @@ libhtml = declare_dependency(
 )
 
 
-# libhtml_tokenize_test = executable(
-#     'libhtml_tokenize_test',
-#     'test/tokenize.cpp',
-#     dependencies: [libhtml]
-# )
+libhtml_canParse_test = executable(
+    'libhtml_canParse_test',
+    'test/canParse.cpp',
+    dependencies: [libhtml]
+)
 
-# test_inputs = [
-#     'example.com.html',
-#     'fumonet-template.html',
-#     # 'fumonet.html',
-#     'nsg650.html',
-# ]
+test_inputs = [
+    'basic.html',
+    'headInHead.html',
+    'invalidDoctype.html',
+    # 'missingDoctype.html',  # segfaults
+    'noHtmlTag.html',
+    # 'noscriptInHead.html',  # unknown insertion mode encountered: in head noscript
+    # 'scriptInHead.html',  # unknown tokenizer state encountered: 4
+    'spacesBeforeDoctype.html',
+    # 'styleTag.html',  # segfaults
+    'textBeforeDoctype.html',
+    # 'weirdEndTags.html',  # segfaults
+]
 
-# foreach input : test_inputs
-#     test(
-#         f'tokenize - @input@', libhtml_tokenize_test,
-#         workdir: meson.current_source_dir(),
-#         args: [f'test/@input@'],
-#     )
-# endforeach
+foreach input : test_inputs
+    test(
+        f'can parse - @input@', libhtml_canParse_test,
+        workdir: meson.current_source_dir(),
+        args: [f'test/cases/@input@'],
+    )
+endforeach
