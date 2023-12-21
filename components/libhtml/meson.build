@@ -30,6 +30,12 @@ libhtml_canParse_test = executable(
     dependencies: [libhtml]
 )
 
+libhtml_stdin_test = executable(
+    'libhtml_stdin_test',
+    'test/stdin.cpp',
+    dependencies: [libhtml]
+)
+
 test_inputs = [
     'basic.html',
     'eofInText.html',
