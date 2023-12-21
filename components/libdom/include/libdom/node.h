@@ -11,6 +11,8 @@ class Document;
 
 class Node {
 public:
+  virtual ~Node() = default;
+
   static const unsigned short ELEMENT_NODE = 1;
   static const unsigned short ATTRIBUTE_NODE = 2;
   static const unsigned short TEXT_NODE = 3;
