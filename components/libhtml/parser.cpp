@@ -347,8 +347,8 @@ void Parser::afterHead(std::unique_ptr<Token> token) {
     auto tagToken = CONVERT_TO(TagToken, token);
     if (tagToken->name() == L"body" || tagToken->name() == L"html" ||
         tagToken->name() == L"br") {
-      goto anythingElse;
       token = std::move(tagToken);
+      goto anythingElse;
     }
     return;
   }
@@ -397,6 +397,7 @@ void Parser::text(std::unique_ptr<Token> token) {
     break;
 
 void Parser::process(std::unique_ptr<Token> token) {
+  assert(token != nullptr);
   std::cout << "emitted token type=" << token->type()
             << ", mode=" << m_insertionMode << "\n";
   switch (m_insertionMode) {

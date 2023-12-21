@@ -35,14 +35,14 @@ test_inputs = [
     'eofInText.html',
     'headInHead.html',
     'invalidDoctype.html',
-    # 'missingDoctype.html',  # segfaults
+    'missingDoctype.html',
     'noHtmlTag.html',
     # 'noscriptInHead.html',  # unknown insertion mode encountered: in head noscript
     # 'scriptInHead.html',  # unknown tokenizer state encountered: 4
     'spacesBeforeDoctype.html',
-    # 'styleTag.html',  # segfaults
+    'styleTag.html',
     'textBeforeDoctype.html',
-    # 'weirdEndTags.html',  # segfaults
+    'weirdEndTags.html',
 ]
 
 foreach input : test_inputs
