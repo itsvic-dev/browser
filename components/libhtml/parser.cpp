@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cassert>
 #include <codecvt>
+#include <cstddef>
 #include <cwchar>
 #include <exception>
 #include <iostream>
@@ -1147,9 +1148,46 @@ bool Parser::stackHasInButtonScope(std::wstring tagName) {
 /** https://html.spec.whatwg.org/multipage/parsing.html#adoption-agency-algorithm
  */
 void Parser::adoptionAgency(TagToken *token) {
-  (void)token;
-  // TODO: Parser::adoptionAgency
-  throw StringException("TODO: Parser::adoptionAgency");
+  auto subject = token->name();
+  auto it = std::find(m_activeFormattingElems.begin(),
+                      m_activeFormattingElems.end(), CURRENT_NODE);
+  if (CURRENT_NODE->localName == subject &&
+      CURRENT_NODE->namespaceURI == NS_HTML &&
+      it == m_activeFormattingElems.end()) {
+    m_nodeStack.pop_back();
+    return;
+  }
+
+  size_t outerLoopCounter = 0;
+  while (true) {
+    if (outerLoopCounter >= 8)
+      return;
+    outerLoopCounter++;
+    std::shared_ptr<LibDOM::Element> formattingElement;
+    // FIXME: markers
+    for (int i = m_activeFormattingElems.size() - 1; i >= 0; i--) {
+      if (m_activeFormattingElems[i]->localName == subject) {
+        formattingElement = m_activeFormattingElems[i];
+        break;
+      }
+    }
+    if (std::find(m_nodeStack.begin(), m_nodeStack.end(), formattingElement) ==
+        m_nodeStack.end()) {
+      m_activeFormattingElems.erase(std::find(m_activeFormattingElems.begin(),
+                                              m_activeFormattingElems.end(),
+                                              formattingElement));
+      return;
+    } else if (!isInScope(formattingElement)) {
+      return;
+    }
+    // FIXME: Let furthestBlock be the topmost node in the stack of open
+    // elements that is lower in the stack than formattingElement, and is an
+    // element in the special category. There might not be one.
+    // note: for now I'm assuming there is no furthest block
+    while (CURRENT_NODE != formattingElement)
+      m_nodeStack.pop_back();
+    m_nodeStack.pop_back();
+  }
 }
 
 void Parser::popStackUntil(std::wstring tagName) {
