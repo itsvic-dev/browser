@@ -789,10 +789,12 @@ void Parser::inBody(std::unique_ptr<Token> token) {
     }
 
     const std::vector<std::wstring> names4 = {
-        L"b", L"big",   L"code",   L"em",     L"font", L"i",
-        L"s", L"small", L"strike", L"strong", L"tt",   L"u"};
+        L"a",    L"b", L"big",   L"code",   L"em",     L"font", L"i",
+        L"nobr", L"s", L"small", L"strike", L"strong", L"tt",   L"u",
+    };
     if (IS_ONE_OF(name, names4)) {
-      throw StringException("TODO: in body: formatting end tags");
+      adoptionAgency(tagToken.get());
+      return;
     }
 
     if (name == L"applet" || name == L"marquee" || name == L"object") {
@@ -892,8 +894,29 @@ void Parser::reconstructActiveFormattingElements() {
                 m_activeFormattingElems.back()) != m_nodeStack.end()) {
     return;
   }
-  // TODO: Parser::reconstructActiveFormattingElements
-  throw StringException("TODO: Parser::reconstructActiveFormattingElements");
+
+  auto entry = m_activeFormattingElems.back();
+rewind:
+  if (entry == m_activeFormattingElems.begin()[0])
+    goto create;
+  entry = std::find(m_activeFormattingElems.begin(),
+                    m_activeFormattingElems.end(), entry)[-1];
+  if (std::find(m_nodeStack.begin(), m_nodeStack.end(), entry) !=
+      m_nodeStack.end())
+    goto rewind;
+
+advance:
+  entry = std::find(m_activeFormattingElems.begin(),
+                    m_activeFormattingElems.end(), entry)[1];
+create:
+  auto tagToken = std::make_shared<TagToken>(START_TAG);
+  tagToken->setName(entry->localName);
+  auto newElem = INSERT_HTML_ELEMENT(tagToken);
+  auto it = std::find(m_activeFormattingElems.begin(),
+                      m_activeFormattingElems.end(), entry);
+  *it = newElem;
+  if (newElem != m_activeFormattingElems.back())
+    goto advance;
 }
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#insert-a-character */
