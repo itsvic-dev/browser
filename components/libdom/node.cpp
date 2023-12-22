@@ -6,8 +6,9 @@
 namespace LibDOM {
 
 void Node::appendChild(std::shared_ptr<Node> node) {
-  std::cout << "(dom) appending " << node->internalName() << " to "
-            << this->internalName() << "\n";
+  std::wcout << "(dom) appending " << node->internalName().c_str() << " ("
+             << node->nodeName << ") to " << this->internalName().c_str()
+             << " (" << this->nodeName << ")\n";
   childNodes.push_back(node);
   node->parentNode = this;
 }

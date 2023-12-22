@@ -81,12 +81,12 @@ private:
                                                      std::wstring prefix = L"");
 
   /** https://html.spec.whatwg.org/multipage/parsing.html#create-an-element-for-the-token */
-  std::shared_ptr<LibDOM::Node>
+  std::shared_ptr<LibDOM::Element>
   createElementForToken(TagToken *token, std::wstring ns,
                         std::shared_ptr<LibDOM::Node> intendedParent);
 
   /** https://html.spec.whatwg.org/multipage/parsing.html#insert-a-foreign-element */
-  std::shared_ptr<LibDOM::Node>
+  std::shared_ptr<LibDOM::Element>
   insertForeignElement(TagToken *token, std::wstring ns,
                        bool onlyAddToElementStack);
 
@@ -107,17 +107,31 @@ private:
   void closePElem();
 
   /** https://html.spec.whatwg.org/multipage/parsing.html#push-onto-the-list-of-active-formatting-elements */
-  void pushOntoActiveFormattingElems(std::shared_ptr<LibDOM::Node> node);
+  void pushOntoActiveFormattingElems(std::shared_ptr<LibDOM::Element> node);
+
+  /** https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-scope */
+  bool isInScope(std::shared_ptr<LibDOM::Element> targetNode);
+  bool isInButtonScope(std::shared_ptr<LibDOM::Element> targetNode);
+  bool stackHasInScope(std::wstring tagName);
+  bool stackHasInButtonScope(std::wstring tagName);
+
+  /** https://html.spec.whatwg.org/multipage/parsing.html#adoption-agency-algorithm
+
+    why is it named the "adoption agency" algo???
+  */
+  void adoptionAgency(TagToken *token);
+
+  void popStackUntil(std::wstring tagName);
 
   Tokenizer m_tokenizer;
   ParserMode m_insertionMode = INITIAL;
   ParserMode m_originalInsertionMode = UNDEFINED_MODE;
   /** Stack of open elements */
-  std::vector<std::shared_ptr<LibDOM::Node>> m_nodeStack;
-  std::vector<std::shared_ptr<LibDOM::Node>> m_activeFormattingElems;
+  std::vector<std::shared_ptr<LibDOM::Element>> m_nodeStack;
+  std::vector<std::shared_ptr<LibDOM::Element>> m_activeFormattingElems;
 
-  std::shared_ptr<LibDOM::Node> m_headElementPointer = nullptr;
-  std::shared_ptr<LibDOM::Node> m_formElementPointer = nullptr;
+  std::shared_ptr<LibDOM::Element> m_headElementPointer = nullptr;
+  std::shared_ptr<LibDOM::Element> m_formElementPointer = nullptr;
 
   bool m_scriptingFlag = false;
   bool m_framesetOk = true;

@@ -423,8 +423,8 @@ void Parser::inBody(std::unique_ptr<Token> token) {
         L"hgroup",   L"main",       L"menu",    L"nav",        L"ol",
         L"p",        L"search",     L"section", L"summary",    L"ul"};
     if (IS_ONE_OF(name, names2)) {
-      // FIXME: If the stack of open elements has a p element in button scope,
-      // then close a p element.
+      if (stackHasInButtonScope(L"p"))
+        closePElem();
       INSERT_HTML_ELEMENT(tagToken);
       return;
     }
@@ -432,8 +432,8 @@ void Parser::inBody(std::unique_ptr<Token> token) {
     const std::vector<std::wstring> names3 = {L"h1", L"h2", L"h3",
                                               L"h4", L"h5", L"h6"};
     if (IS_ONE_OF(name, names3)) {
-      // FIXME: If the stack of open elements has a p element in button scope,
-      // then close a p element.
+      if (stackHasInButtonScope(L"p"))
+        closePElem();
       auto currentNodeName = CURRENT_NODE->nodeName;
       if (IS_ONE_OF(currentNodeName, names3)) {
         m_nodeStack.pop_back();
@@ -443,8 +443,8 @@ void Parser::inBody(std::unique_ptr<Token> token) {
     }
 
     if (name == L"pre" || name == L"listing") {
-      // FIXME: If the stack of open elements has a p element in button scope,
-      // then close a p element.
+      if (stackHasInButtonScope(L"p"))
+        closePElem();
 
       INSERT_HTML_ELEMENT(tagToken);
       // FIXME: If the next token is a U+000A LINE FEED (LF) character token,
@@ -456,8 +456,8 @@ void Parser::inBody(std::unique_ptr<Token> token) {
     if (name == L"form") {
       if (m_formElementPointer != nullptr)
         return;
-      // FIXME: If the stack of open elements has a p element in button scope,
-      // then close a p element.
+      if (stackHasInButtonScope(L"p"))
+        closePElem();
       auto elem = INSERT_HTML_ELEMENT(tagToken);
       m_formElementPointer = elem;
       return;
@@ -474,16 +474,21 @@ void Parser::inBody(std::unique_ptr<Token> token) {
     }
 
     if (name == L"plaintext") {
-      // FIXME: If the stack of open elements has a p element in button scope,
-      // then close a p element.
+      if (stackHasInButtonScope(L"p"))
+        closePElem();
       INSERT_HTML_ELEMENT(tagToken);
       m_tokenizer.currentState = PLAINTEXT;
       return;
     }
 
     if (name == L"button") {
-      // FIXME: If the stack of open elements has a button element in scope,
-      // then run these substeps: ...
+      for (auto elem : m_nodeStack) {
+        if (elem->nodeName == L"button" && isInScope(elem)) {
+          generateImpliedEndTags();
+          popStackUntil(L"button");
+          break;
+        }
+      }
 
       reconstructActiveFormattingElements();
       INSERT_HTML_ELEMENT(tagToken);
@@ -511,8 +516,18 @@ void Parser::inBody(std::unique_ptr<Token> token) {
     }
 
     if (name == L"a") {
-      throw StringException("TODO: in body: a start tag (fucking bullshit wall "
-                            "of text i hate you)");
+      // FIXME: If the list of active formatting elements contains an a element
+      // between the end of the list and the last marker on the list (or the
+      // start of the list if there is no marker on the list), then this is a
+      // parse error; run the adoption agency algorithm for the token, then
+      // remove that element from the list of active formatting elements and the
+      // stack of open elements if the adoption agency algorithm didn't already
+      // remove it (it might not have if the element is not in table scope).
+
+      reconstructActiveFormattingElements();
+      auto elem = INSERT_HTML_ELEMENT(tagToken);
+      pushOntoActiveFormattingElems(elem);
+      return;
     }
 
     const std::vector<std::wstring> names4 = {
@@ -526,9 +541,10 @@ void Parser::inBody(std::unique_ptr<Token> token) {
 
     if (name == L"nobr") {
       reconstructActiveFormattingElements();
-      // FIXME: If the stack of open elements has a nobr element in scope, then
-      // this is a parse error; run the adoption agency algorithm for the token,
-      // then once again reconstruct the active formatting elements, if any.
+      if (stackHasInScope(L"nobr")) {
+        adoptionAgency(tagToken.get());
+        reconstructActiveFormattingElements();
+      }
       auto elem = INSERT_HTML_ELEMENT(tagToken);
       pushOntoActiveFormattingElems(elem);
       return;
@@ -543,8 +559,8 @@ void Parser::inBody(std::unique_ptr<Token> token) {
     }
 
     if (name == L"table") {
-      // FIXME: If the Document is not set to quirks mode, and the stack of open
-      // elements has a p element in button scope, then close a p element.
+      if (document->mode != "quirks" && stackHasInButtonScope(L"p"))
+        closePElem();
       INSERT_HTML_ELEMENT(tagToken);
       m_framesetOk = false;
       m_insertionMode = IN_TABLE;
@@ -573,8 +589,8 @@ void Parser::inBody(std::unique_ptr<Token> token) {
     }
 
     if (name == L"hr") {
-      // FIXME: If the stack of open elements has a p element in button scope,
-      // then close a p element.
+      if (stackHasInButtonScope(L"p"))
+        closePElem();
       INSERT_HTML_ELEMENT(tagToken);
       m_nodeStack.pop_back();
       m_framesetOk = false;
@@ -600,8 +616,8 @@ void Parser::inBody(std::unique_ptr<Token> token) {
     }
 
     if (name == L"xmp") {
-      // FIXME: If the stack of open elements has a p element in button scope,
-      // then close a p element.
+      if (stackHasInButtonScope(L"p"))
+        closePElem();
       reconstructActiveFormattingElements();
       m_framesetOk = false;
       genericRawTextParse(std::move(tagToken));
@@ -641,15 +657,15 @@ void Parser::inBody(std::unique_ptr<Token> token) {
     }
 
     if (name == L"rb" || name == L"rtc") {
-      // FIXME: If the stack of open elements has a ruby element in scope, then
-      // generate implied end tags.
+      if (stackHasInScope(L"ruby"))
+        generateImpliedEndTags();
       INSERT_HTML_ELEMENT(tagToken);
       return;
     }
 
     if (name == L"rp" || name == L"rt") {
-      // FIXME: If the stack of open elements has a ruby element in scope, then
-      // generate implied end tags, except for rtc elements.
+      if (stackHasInScope(L"ruby"))
+        generateImpliedEndTagsExceptFor(L"rtc");
       INSERT_HTML_ELEMENT(tagToken);
       return;
     }
@@ -706,16 +722,19 @@ void Parser::inBody(std::unique_ptr<Token> token) {
 
     auto name = tagToken->name();
     const std::vector<std::wstring> names = {
-        L"address",  L"article",    L"aside",   L"blockquote", L"center",
-        L"details",  L"dialog",     L"dir",     L"div",        L"dl",
-        L"fieldset", L"figcaption", L"figure",  L"footer",     L"header",
-        L"hgroup",   L"main",       L"menu",    L"nav",        L"ol",
-        L"p",        L"search",     L"section", L"summary",    L"ul"};
+        L"address", L"article",  L"aside",      L"blockquote", L"button",
+        L"center",  L"details",  L"dialog",     L"dir",        L"div",
+        L"dl",      L"fieldset", L"figcaption", L"figure",     L"footer",
+        L"header",  L"hgroup",   L"listing",    L"main",       L"menu",
+        L"nav",     L"ol",       L"pre",        L"search",     L"section",
+        L"summary", L"ul",
+    };
     if (IS_ONE_OF(name, names)) {
-      throw StringException(
-          "TODO: If the stack of open elements does not have an element in "
-          "scope that is an HTML element with the same tag name as that of the "
-          "token, then this is a parse error; ignore the token.");
+      if (!stackHasInScope(name))
+        return;
+      generateImpliedEndTags();
+      popStackUntil(name);
+      return;
     }
 
     if (name == L"form") {
@@ -731,9 +750,11 @@ void Parser::inBody(std::unique_ptr<Token> token) {
     }
 
     if (name == L"p") {
-      // FIXME: If the stack of open elements does not have a p element in
-      // button scope, then this is a parse error; insert an HTML element for a
-      // "p" start tag token with no attributes.
+      if (!stackHasInButtonScope(L"p")) {
+        auto newTagToken = std::make_shared<TagToken>(START_TAG);
+        newTagToken->appendName(L"p");
+        INSERT_HTML_ELEMENT(newTagToken);
+      }
       closePElem();
       return;
     }
@@ -746,9 +767,8 @@ void Parser::inBody(std::unique_ptr<Token> token) {
     }
 
     if (name == L"dd" || name == L"dt") {
-      // FIXME: If the stack of open elements does not have an element in scope
-      // that is an HTML element with the same tag name as that of the token,
-      // then this is a parse error; ignore the token.
+      if (!stackHasInScope(name))
+        return;
       generateImpliedEndTagsExceptFor(name);
       throw StringException("TODO: in body: dd/dt end tags (too lazy)");
     }
@@ -756,9 +776,8 @@ void Parser::inBody(std::unique_ptr<Token> token) {
     const std::vector<std::wstring> names2 = {L"h1", L"h2", L"h3",
                                               L"h4", L"h5", L"h6"};
     if (IS_ONE_OF(name, names2)) {
-      // FIXME: If the stack of open elements does not have an element in scope
-      // that is an HTML element and whose tag name is one of "h1", "h2", "h3",
-      // "h4", "h5", or "h6", then this is a parse error; ignore the token.
+      if (!stackHasInScope(name))
+        return;
       generateImpliedEndTags();
       while (true) {
         auto name = CURRENT_NODE->nodeName;
@@ -777,9 +796,8 @@ void Parser::inBody(std::unique_ptr<Token> token) {
     }
 
     if (name == L"applet" || name == L"marquee" || name == L"object") {
-      // FIXME: If the stack of open elements does not have an element in scope
-      // that is an HTML element with the same tag name as that of the token,
-      // then this is a parse error; ignore the token.
+      if (!stackHasInScope(name))
+        return;
       generateImpliedEndTags();
       throw StringException("TODO: in body: marquee end tag (too lazy)");
     }
@@ -861,6 +879,7 @@ void Parser::process(std::unique_ptr<Token> token) {
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#reset-the-insertion-mode-appropriately */
 void Parser::resetInsertionModeAppropriately() {
+  // TODO: Parser::resetInsertionModeAppropriately
   throw StringException("TODO: Parser::resetInsertionModeAppropriately");
 }
 
@@ -868,6 +887,12 @@ void Parser::resetInsertionModeAppropriately() {
 void Parser::reconstructActiveFormattingElements() {
   if (m_activeFormattingElems.empty())
     return;
+  // FIXME: markers
+  if (std::find(m_nodeStack.begin(), m_nodeStack.end(),
+                m_activeFormattingElems.back()) != m_nodeStack.end()) {
+    return;
+  }
+  // TODO: Parser::reconstructActiveFormattingElements
   throw StringException("TODO: Parser::reconstructActiveFormattingElements");
 }
 
@@ -928,7 +953,7 @@ Parser::createElement(std::wstring localName, std::wstring ns,
 #undef LOCAL_DEF
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#create-an-element-for-the-token */
-std::shared_ptr<LibDOM::Node>
+std::shared_ptr<LibDOM::Element>
 Parser::createElementForToken(TagToken *token, std::wstring ns,
                               std::shared_ptr<LibDOM::Node> intendedParent) {
   (void)intendedParent;
@@ -942,7 +967,7 @@ Parser::createElementForToken(TagToken *token, std::wstring ns,
   return elem;
 }
 
-std::shared_ptr<LibDOM::Node>
+std::shared_ptr<LibDOM::Element>
 Parser::insertForeignElement(TagToken *token, std::wstring ns,
                              bool onlyAddToElementStack) {
   auto insertLocation = CURRENT_NODE;
@@ -993,16 +1018,142 @@ void Parser::generateImpliedEndTags() {
 
 void Parser::generateImpliedEndTagsExceptFor(std::wstring tagName) {
   (void)tagName;
-  throw StringException("TODO: Parser::generateImpliedEndTagsExceptFor");
+  // TODO: Parser::generateImpliedEndTagsExceptFor
+  const std::vector<std::wstring> endTags = {
+      L"dd", L"dt", L"li", L"optgroup", L"option",
+      L"p",  L"rb", L"rp", L"rt",       L"rtc"};
+  while (true) {
+    auto name = CURRENT_NODE->nodeName;
+    auto it = std::find_if(endTags.begin(), endTags.end(),
+                           [tagName, name](std::wstring otherName) {
+                             return tagName != otherName && name == otherName;
+                           });
+    if (it == endTags.end())
+      return;
+    m_nodeStack.pop_back();
+  }
 }
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#close-a-p-element */
-void Parser::closePElem() { throw StringException("TODO: Parser::closePElem"); }
+void Parser::closePElem() {
+  generateImpliedEndTagsExceptFor(L"p");
+  popStackUntil(L"p");
+}
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#push-onto-the-list-of-active-formatting-elements */
-void Parser::pushOntoActiveFormattingElems(std::shared_ptr<LibDOM::Node> node) {
+void Parser::pushOntoActiveFormattingElems(
+    std::shared_ptr<LibDOM::Element> node) {
   (void)node;
-  throw StringException("TODO: Parser::pushOntoActiveFormattingElems");
+  // FIXME: markers
+  int count = 0;
+  auto it = m_activeFormattingElems.end();
+  for (const auto &item : m_activeFormattingElems) {
+    if (item->nodeName == node->nodeName &&
+        item->namespaceURI == node->namespaceURI
+        /* FIXME: attribute check */) {
+      count++;
+      if (count == 3) {
+        it = std::find(m_activeFormattingElems.begin(),
+                       m_activeFormattingElems.end(), item);
+        break;
+      }
+    }
+  }
+
+  if (it != m_activeFormattingElems.end()) {
+    m_activeFormattingElems.erase(it);
+  }
+
+  m_activeFormattingElems.push_back(node);
+}
+
+/** https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-scope
+ */
+bool Parser::isInScope(std::shared_ptr<LibDOM::Element> targetNode) {
+  auto node = CURRENT_NODE;
+  const std::vector<std::wstring> scope = {
+      L"applet", L"caption", L"html",   L"table",    L"td",
+      L"th",     L"marquee", L"object", L"template",
+  };
+  // TODO: add MathML and SVG scopes
+step2:
+  if (node == targetNode)
+    return true;
+  auto name = node->nodeName;
+  if (IS_ONE_OF(name, scope))
+    return false;
+  node = std::find(m_nodeStack.begin(), m_nodeStack.end(), node)[-1];
+  goto step2;
+}
+
+bool Parser::isInButtonScope(std::shared_ptr<LibDOM::Element> targetNode) {
+  auto node = CURRENT_NODE;
+  const std::vector<std::wstring> scope = {
+      L"applet", L"caption", L"html",   L"table",    L"td",
+      L"th",     L"marquee", L"object", L"template", L"button",
+  };
+  // TODO: add MathML and SVG scopes
+step2:
+  if (node == targetNode)
+    return true;
+  auto name = node->nodeName;
+  if (IS_ONE_OF(name, scope))
+    return false;
+  node = std::find(m_nodeStack.begin(), m_nodeStack.end(), node)[-1];
+  goto step2;
+}
+
+bool Parser::stackHasInScope(std::wstring tagName) {
+  for (auto elem : m_nodeStack) {
+    if (elem->nodeName == tagName && isInScope(elem)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool Parser::stackHasInButtonScope(std::wstring tagName) {
+  for (auto elem : m_nodeStack) {
+    if (elem->nodeName == tagName && isInButtonScope(elem)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** https://html.spec.whatwg.org/multipage/parsing.html#adoption-agency-algorithm
+ */
+void Parser::adoptionAgency(TagToken *token) {
+  (void)token;
+  // TODO: Parser::adoptionAgency
+  throw StringException("TODO: Parser::adoptionAgency");
+}
+
+void Parser::popStackUntil(std::wstring tagName) {
+  // check if tag is in stack before going nuclear
+  if (std::find_if(m_nodeStack.begin(), m_nodeStack.end(),
+                   [tagName](std::shared_ptr<LibDOM::Node> node) {
+                     return node->nodeName == tagName;
+                   }) == m_nodeStack.end()) {
+    std::wclog << "WARNING: attempted to pop '" << tagName
+               << "' from the stack but it's not there" << std::endl;
+    std::wclog << "stack view:\n";
+    for (const auto &item : m_nodeStack) {
+      std::wclog << " - " << item->internalName().c_str() << " "
+                 << item->nodeName << "\n";
+    }
+    return;
+  }
+  while (true) {
+    auto name = CURRENT_NODE->nodeName;
+    // if the current node is the element to pop until, pop it and return
+    if (name == tagName) {
+      m_nodeStack.pop_back();
+      return;
+    }
+    // otherwise, pop and loop
+    m_nodeStack.pop_back();
+  }
 }
 
 } // namespace LibHTML
