@@ -1,0 +1,8 @@
+#ifndef VERSION_H
+#define VERSION_H
+
+#define BROWSER_VERSION "@version@"
+#define BROWSER_USER_AGENT                                                     \
+  "Mozilla/5.0 (compatible; Vic-Browser/" BROWSER_VERSION ")"
+
+#endif // VERSION_H

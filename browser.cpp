@@ -1,5 +1,6 @@
 #include "libdom/node.h"
 #include "libhtml.h"
+#include "version.h"
 #include <cassert>
 #include <cstdio>
 #include <curl/curl.h>
@@ -43,9 +44,16 @@ int main(int argc, char **argv) {
   }
   curl_global_init(CURL_GLOBAL_ALL);
   auto *handle = curl_easy_init();
+  if (!handle)
+    return -2;
 
   curl_easy_setopt(handle, CURLOPT_URL, argv[1]);
   curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, writeCallback);
+  struct curl_slist *headers = NULL;
+  headers = curl_slist_append(headers, "Accept: text/html; charset=UTF-8");
+  headers = curl_slist_append(headers, "User-Agent: " BROWSER_USER_AGENT);
+  curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers);
+
   auto success = curl_easy_perform(handle);
   if (success != CURLE_OK) {
     return -1;
@@ -57,5 +65,6 @@ int main(int argc, char **argv) {
   std::cout << "\nDOM tree dump:\n";
   walkTree(parser.document);
 
+  curl_slist_free_all(headers);
   return 0;
 }

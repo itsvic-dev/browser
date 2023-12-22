@@ -20,6 +20,10 @@ libcurl = dependency(
 subdir('components/libdom')
 subdir('components/libhtml')
 
+conf_data = configuration_data()
+conf_data.set('version', meson.project_version())
+configure_file(input: 'include/version.h.in', output: 'version.h', configuration: conf_data)
+
 exe = executable(
   'browser', 'browser.cpp',
   install: true,
@@ -29,5 +33,9 @@ exe = executable(
 
     # internal deps
     libhtml,
+  ],
+  include_directories: [
+    include_directories('include'),
+    include_directories('.'),
   ],
 )
