@@ -9,30 +9,8 @@ on:
   pull_request:
 
 jobs:
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
-      - name: Install dependencies
-        run: |
-          pip install meson ninja
-          sudo apt update
-          sudo apt install libcurl4-gnutls-dev freetype2-dev fontconfig-dev
-      - name: Configure build
-        run: meson setup builddir --prefix $PWD/out
-      - name: Build
-        run: meson compile -C builddir
-      - name: Install
-        run: meson install -C builddir
-      - uses: actions/upload-artifact@v3
-        with:
-          name: Installed binaries
-          path: out/
-
   test:
-    name: Test
+    name: Build core and Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +19,7 @@ jobs:
         run: |
           pip install meson ninja
           sudo apt update
-          sudo apt install libcurl4-gnutls-dev freetype2-dev fontconfig-dev lcov
+          sudo apt install freetype2-dev fontconfig-dev lcov
       - name: Configure build
         run: meson setup builddir
       - name: Test

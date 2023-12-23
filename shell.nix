@@ -7,5 +7,8 @@ stdenv.mkDerivation {
         freetype
         fontconfig
         lcov
+        qt6.qtbase
+        qt6.qtwayland
+        qt6.qmake
     ];
 }

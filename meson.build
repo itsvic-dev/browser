@@ -9,14 +9,6 @@ project(
   }
 )
 
-libcurl = dependency(
-  'libcurl',
-  required: get_option('curl_shell'), fallback: ['curl'],
-  default_options: {
-    'ssl': 'enabled',
-  },
-)
-
 subdir('components/libdom')
 subdir('components/libhtml')
 subdir('components/libdomrenderer')
@@ -29,6 +21,18 @@ global_includes = [
   include_directories('include'),
 ]
 
+libcurl = dependency(
+  'libcurl',
+  required: get_option('curl_shell'), fallback: ['curl'],
+  default_options: {
+    'ssl': 'enabled',
+  },
+)
 if libcurl.found()
   subdir('shells/curl')
+endif
+
+qt6_dep = dependency('qt6', required: get_option('qt_shell'), modules: ['Core', 'Widgets'])
+if qt6_dep.found()
+  subdir('shells/qt')
 endif

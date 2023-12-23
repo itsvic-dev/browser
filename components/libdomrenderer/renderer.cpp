@@ -80,11 +80,7 @@ size_t Renderer::renderText(std::shared_ptr<LibDOM::Text> text,
     if (xOffset + x + (slot->advance.x >> 6) >= viewport->getWidth()) {
       xOffset = 0;
       yOffset += 16; // FIXME: shouldnt be hardcoded
-      std::cout << "SHOULD WRAP!!!\n";
     }
-
-    std::cout << "char " << (int)text->data[i] << ", positions=" << x + xOffset
-              << ";" << y + yOffset << "\n";
 
     putBitmap(&slot->bitmap, viewport, x + xOffset + slot->bitmap_left,
               y + yOffset - slot->bitmap_top + 16);
