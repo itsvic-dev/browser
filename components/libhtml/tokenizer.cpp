@@ -1097,8 +1097,8 @@ void Tokenizer::stateTick() {
 
     // Unhandled state - missing implementation
     default: {
-      std::cout << "unknown tokenizer state encountered: " << currentState
-                << std::endl;
+      std::wcout << "unknown tokenizer state encountered: " << currentState
+                 << std::endl;
       throw StringException("unknown tokenizer state encountered");
     }
   }
