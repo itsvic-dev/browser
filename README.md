@@ -14,7 +14,7 @@ Configure the build directory like so:
 $ meson setup builddir/
 ```
 
-Meson will look for the cURL library and the Qt framework and enable their respective shells.
+Meson will look for the cURL library and the Qt framework and enable their respective shells. If `libcurl`, `freetype` or `fontconfig` cannot be found, Meson will download and build them.
 
 Once it's configured, run:
 
