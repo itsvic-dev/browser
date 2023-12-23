@@ -1,5 +1,6 @@
 #include "libhtml/parser.h"
 #include "libdom.h"
+#include "libdom/comment.h"
 #include "libdom/element.h"
 #include "libdom/node.h"
 #include "libdom/text.h"
@@ -862,8 +863,10 @@ void Parser::text(std::unique_ptr<Token> token) {
 
 void Parser::process(std::unique_ptr<Token> token) {
   assert(token != nullptr);
+#if 0
   std::cout << "emitted token type=" << token->type()
             << ", mode=" << m_insertionMode << "\n";
+#endif
   switch (m_insertionMode) {
     MODE(INITIAL, initialInsertion)
     MODE(BEFORE_HTML, beforeHtml)
@@ -956,9 +959,12 @@ void Parser::insertCharacter(std::unique_ptr<CharacterToken> token) {
 /** https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment */
 void Parser::insertComment(std::unique_ptr<Token> token,
                            std::shared_ptr<LibDOM::Node> position) {
-  (void)token;
-  (void)position;
-  throw StringException("TODO: Parser::insertComment");
+  auto commentToken = CONVERT_TO(CommentToken, token);
+  auto adjustedPos = position == nullptr ? CURRENT_NODE : position;
+  auto comment = std::make_shared<LibDOM::Comment>();
+  comment->data = commentToken->data();
+  comment->ownerDocument = adjustedPos->ownerDocument;
+  adjustedPos->appendChild(comment);
 }
 
 #define LOCAL_DEF(ln, type)                                                    \

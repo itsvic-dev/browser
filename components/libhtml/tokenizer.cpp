@@ -38,9 +38,9 @@ void Tokenizer::process(const wchar_t *input, size_t size,
 
   while (m_inputPtr < m_inputSize) {
 #if 0
-    std::cout << "state=" << currentState << " ptr=" << m_inputPtr << " ("
-              << m_input[m_inputPtr] << ")"
-              << "\n";
+    std::wcout << "state=" << currentState << " ptr=" << m_inputPtr << " ("
+               << m_input[m_inputPtr] << ")"
+               << " token=" << m_currentToken.get() << "\n";
 #endif
     stateTick();
   }
@@ -827,7 +827,7 @@ void Tokenizer::stateTick() {
     case MARKUP_DECLARATION: {
       if (wcsncmp(&m_input[m_inputPtr], L"--", 2) == 0) {
         consume(2);
-        emit(std::make_unique<CommentToken>());
+        create(std::make_unique<CommentToken>());
         currentState = COMMENT_START;
         return;
       }
@@ -851,6 +851,126 @@ void Tokenizer::stateTick() {
       // (don't consume anything in the current state)."
       create(std::make_unique<CommentToken>());
       currentState = BOGUS_COMMENT;
+      break;
+    }
+
+    case COMMENT_START: {
+      consume();
+      IF_IS('-') {
+        currentState = COMMENT_START_DASH;
+        return;
+      }
+      IF_IS('>') {
+        emitCurrent();
+        currentState = DATA;
+        return;
+      }
+      currentState = COMMENT_STATE;
+      RECONSUME;
+      break;
+    }
+
+    case COMMENT_START_DASH: {
+      consume();
+      IF_IS('-') {
+        currentState = COMMENT_END;
+        return;
+      }
+      IF_IS('>') {
+        emitCurrent();
+        currentState = DATA;
+        return;
+      }
+      IF_IS(EOF) {
+        emitCurrent();
+        emit(std::make_unique<EOFToken>());
+        return;
+      }
+      auto commentToken = CONVERT_TO(CommentToken, m_currentToken);
+      commentToken->appendData('-');
+      MOVE_TOKEN(commentToken);
+      currentState = COMMENT_STATE;
+      RECONSUME;
+      break;
+    }
+
+    case COMMENT_STATE: {
+      consume();
+      IF_IS('<') {
+        auto commentToken = CONVERT_TO(CommentToken, m_currentToken);
+        commentToken->appendData(m_currentChar);
+        MOVE_TOKEN(commentToken);
+        currentState = COMMENT_LESS_THAN_SIGN;
+        return;
+      }
+      IF_IS('-') {
+        currentState = COMMENT_END_DASH;
+        return;
+      }
+      IF_IS(0) {
+        auto commentToken = CONVERT_TO(CommentToken, m_currentToken);
+        commentToken->appendData(L'\ufffd');
+        MOVE_TOKEN(commentToken);
+        return;
+      }
+      IF_IS(EOF) {
+        emitCurrent();
+        emit(std::make_unique<EOFToken>());
+        return;
+      }
+      auto commentToken = CONVERT_TO(CommentToken, m_currentToken);
+      commentToken->appendData(m_currentChar);
+      MOVE_TOKEN(commentToken);
+      break;
+    }
+
+    case COMMENT_END_DASH: {
+      consume();
+      IF_IS('-') {
+        currentState = COMMENT_END;
+        return;
+      }
+      IF_IS(EOF) {
+        emitCurrent();
+        emit(std::make_unique<EOFToken>());
+        return;
+      }
+      auto commentToken = CONVERT_TO(CommentToken, m_currentToken);
+      commentToken->appendData('-');
+      MOVE_TOKEN(commentToken);
+      currentState = COMMENT_STATE;
+      RECONSUME;
+      break;
+    }
+
+    case COMMENT_END: {
+      consume();
+      IF_IS('>') {
+        emitCurrent();
+        currentState = DATA;
+        return;
+      }
+      IF_IS('!') {
+        currentState = COMMENT_END_BANG;
+        return;
+      }
+      IF_IS('-') {
+        auto commentToken = CONVERT_TO(CommentToken, m_currentToken);
+        commentToken->appendData('-');
+        MOVE_TOKEN(commentToken);
+        return;
+      }
+      IF_IS(EOF) {
+        emitCurrent();
+        emit(std::make_unique<EOFToken>());
+        return;
+      }
+      auto commentToken = CONVERT_TO(CommentToken, m_currentToken);
+      commentToken->appendData('-');
+      commentToken->appendData('-');
+      MOVE_TOKEN(commentToken);
+      currentState = COMMENT_STATE;
+      RECONSUME;
       break;
     }
 

@@ -50,7 +50,7 @@ public:
   TokenType type();
 
   std::wstring name();
-  void appendName(char c);
+  void appendName(wchar_t c);
   void appendName(const std::wstring name);
   void setName(const std::wstring name);
 
@@ -69,7 +69,7 @@ public:
   TokenType type();
 
   std::wstring data();
-  void appendData(char c);
+  void appendData(wchar_t c);
 
 private:
   std::wstring m_data = L"";
@@ -78,12 +78,12 @@ private:
 class DoctypeToken : public Token {
 public:
   DoctypeToken() = default;
-  DoctypeToken(char c);
+  DoctypeToken(wchar_t c);
   DoctypeToken(std::wstring name);
   TokenType type();
 
   std::wstring name();
-  void appendName(char c);
+  void appendName(wchar_t c);
   void appendName(const std::wstring name);
   bool forceQuirks();
   void setForceQuirks(bool v);
