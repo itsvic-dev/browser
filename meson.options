@@ -1,0 +1,2 @@
+option('curl_shell', type: 'feature', value: 'auto')
+option('qt_shell', type: 'feature', value: 'auto')
