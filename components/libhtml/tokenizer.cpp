@@ -37,7 +37,11 @@ void Tokenizer::process(const wchar_t *input, size_t size,
   m_onEmit = onEmit;
 
   while (m_inputPtr < m_inputSize) {
-    // std::cout << "state=" << currentState << " ptr=" << m_inputPtr << "\n";
+#if 0
+    std::cout << "state=" << currentState << " ptr=" << m_inputPtr << " ("
+              << m_input[m_inputPtr] << ")"
+              << "\n";
+#endif
     stateTick();
   }
 }
@@ -559,7 +563,7 @@ void Tokenizer::stateTick() {
       if (isupper(m_currentChar)) {
         assert(m_currentToken->type() == START_TAG);
         auto token = CONVERT_TO(TagToken, m_currentToken);
-        token->attributes.back().name += m_currentChar;
+        token->attributes.back().name += m_currentChar + 0x20;
         MOVE_TOKEN(token);
         return;
       }
@@ -591,6 +595,11 @@ void Tokenizer::stateTick() {
       }
       IF_IS('=') {
         currentState = BEFORE_ATTRIBUTE_VALUE;
+        return;
+      }
+      IF_IS('>') {
+        currentState = DATA;
+        emitCurrent();
         return;
       }
       IF_IS(EOF) {

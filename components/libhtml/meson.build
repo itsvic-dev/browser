@@ -49,6 +49,7 @@ test_inputs = [
     'styleTag.html',
     'textBeforeDoctype.html',
     'weirdEndTags.html',
+    'whitespaceWorky.html',
 ]
 
 foreach input : test_inputs
