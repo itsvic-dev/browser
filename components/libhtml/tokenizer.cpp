@@ -2,6 +2,7 @@
 #include "libhtml.h"
 #include "libhtml/exceptions.h"
 #include "libhtml/tokens.h"
+#include <algorithm>
 #include <cassert>
 #include <cctype>
 #include <cstddef>
@@ -19,6 +20,10 @@
 #define CONVERT_TO(type, ptr)                                                  \
   std::unique_ptr<type>(reinterpret_cast<type *>(ptr.release()))
 #define MOVE_TOKEN(ptr) m_currentToken = std::move(ptr)
+#define CONSUMED_BY_ATTR                                                       \
+  (returnState == ATTRIBUTE_VALUE_DOUBLE_QUOTE ||                              \
+   returnState == ATTRIBUTE_VALUE_SINGLE_QUOTE ||                              \
+   returnState == ATTRIBUTE_VALUE_UNQUOTED)
 
 namespace LibHTML {
 
@@ -106,6 +111,25 @@ void Tokenizer::stateTick() {
       }
 
       emit(std::unique_ptr<CharacterToken>(new CharacterToken(m_currentChar)));
+      break;
+    }
+
+    // https://html.spec.whatwg.org/multipage/parsing.html#script-data-state
+    case SCRIPT_DATA: {
+      consume();
+      IF_IS('<') {
+        currentState = SCRIPT_DATA_LESS_THAN_SIGN;
+        return;
+      }
+      IF_IS(0) {
+        emit(std::make_unique<CharacterToken>(L'\ufffd'));
+        return;
+      }
+      IF_IS(EOF) {
+        emit(std::make_unique<EOFToken>());
+        return;
+      }
+      emit(std::make_unique<CharacterToken>(m_currentChar));
       break;
     }
 
@@ -397,6 +421,99 @@ void Tokenizer::stateTick() {
       break;
     }
 
+    // https://html.spec.whatwg.org/multipage/parsing.html#script-data-less-than-sign-state
+    case SCRIPT_DATA_LESS_THAN_SIGN: {
+      consume();
+      IF_IS('/') {
+        m_tempBuffer = L"";
+        currentState = SCRIPT_DATA_END_TAG_OPEN;
+        return;
+      }
+      IF_IS('!') {
+        currentState = SCRIPT_DATA_ESCAPE_START;
+        emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'<')));
+        emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'!')));
+        return;
+      }
+      emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'<')));
+      currentState = SCRIPT_DATA;
+      RECONSUME;
+      break;
+    }
+
+    // https://html.spec.whatwg.org/multipage/parsing.html#script-data-end-tag-open-state
+    case SCRIPT_DATA_END_TAG_OPEN: {
+      consume();
+      if (isalpha(m_currentChar)) {
+        create(std::make_unique<TagToken>(END_TAG));
+        currentState = SCRIPT_DATA_END_TAG_NAME;
+        RECONSUME;
+        return;
+      }
+      emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'<')));
+      emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'/')));
+      currentState = SCRIPT_DATA;
+      RECONSUME;
+      break;
+    }
+
+    // https://html.spec.whatwg.org/multipage/parsing.html#script-data-end-tag-name-state
+    case SCRIPT_DATA_END_TAG_NAME: {
+      consume();
+      auto tagToken = CONVERT_TO(TagToken, m_currentToken);
+      if (isspace(m_currentChar)) {
+        if (m_lastStartTagEmitted != L"" &&
+            tagToken->name() == m_lastStartTagEmitted) {
+          currentState = BEFORE_ATTRIBUTE_NAME;
+          create(std::move(tagToken));
+          return;
+        }
+      }
+
+      IF_IS('/') {
+        if (m_lastStartTagEmitted != L"" &&
+            tagToken->name() == m_lastStartTagEmitted) {
+          currentState = SELF_CLOSING_START_TAG;
+          create(std::move(tagToken));
+          return;
+        }
+      }
+
+      IF_IS('>') {
+        if (m_lastStartTagEmitted != L"" &&
+            tagToken->name() == m_lastStartTagEmitted) {
+          currentState = DATA;
+          emit(std::move(tagToken));
+          return;
+        }
+      }
+
+      if (isupper(m_currentChar)) {
+        tagToken->appendName(m_currentChar + 0x20);
+        m_tempBuffer += m_currentChar;
+        create(std::move(tagToken));
+        return;
+      }
+
+      if (islower(m_currentChar)) {
+        tagToken->appendName(m_currentChar);
+        m_tempBuffer += m_currentChar;
+        create(std::move(tagToken));
+        return;
+      }
+
+      emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'<')));
+      emit(std::unique_ptr<CharacterToken>(new CharacterToken(L'/')));
+      for (size_t i = 0; i < m_tempBuffer.size(); i++) {
+        emit(std::unique_ptr<CharacterToken>(
+            new CharacterToken(m_tempBuffer[i])));
+      }
+      currentState = SCRIPT_DATA;
+      RECONSUME;
+      create(std::move(tagToken));
+      break;
+    }
+
     // https://html.spec.whatwg.org/multipage/parsing.html#before-attribute-name-state
     case BEFORE_ATTRIBUTE_NAME: {
       consume();
@@ -665,6 +782,36 @@ void Tokenizer::stateTick() {
       // before attribute name state."
       RECONSUME;
       currentState = BEFORE_ATTRIBUTE_NAME;
+      break;
+    }
+
+    case CHARACTER_REFERENCE: {
+      m_tempBuffer = L"&";
+      consume();
+      if (isalnum(m_currentChar)) {
+        currentState = NAMED_CHARACTER_REFERENCE;
+        RECONSUME;
+        return;
+      }
+      IF_IS('#') {
+        m_tempBuffer += m_currentChar;
+        currentState = NUMERIC_CHARACTER_REFERENCE;
+        return;
+      }
+
+      if (CONSUMED_BY_ATTR) {
+        auto tagToken = CONVERT_TO(TagToken, m_currentToken);
+        for (const auto &c : m_tempBuffer) {
+          tagToken->attributes.back().value += c;
+        }
+        m_currentToken = std::move(tagToken);
+      } else {
+        for (const auto &c : m_tempBuffer) {
+          emit(std::make_unique<CharacterToken>(c));
+        }
+      }
+      currentState = returnState;
+      RECONSUME;
       break;
     }
 
