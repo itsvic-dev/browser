@@ -39,6 +39,16 @@ namespace LibHTML {
 
 Parser::Parser() : document(std::make_shared<LibDOM::Document>()) {}
 
+void Parser::reset() {
+  m_insertionMode = INITIAL;
+  m_nodeStack.clear();
+  m_tokenizer.currentState = DATA;
+  m_activeFormattingElems.clear();
+  m_headElementPointer = nullptr;
+  m_formElementPointer = nullptr;
+  m_framesetOk = true;
+}
+
 void Parser::parse(const char *text, size_t textLen) {
   // convert string to wstring
   std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
@@ -880,8 +890,8 @@ void Parser::process(std::unique_ptr<Token> token) {
       // FIXME: implement
       break;
     default:
-      std::cout << "unknown insertion mode encountered: " << m_insertionMode
-                << std::endl;
+      std::wcout << "unknown insertion mode encountered: " << m_insertionMode
+                 << std::endl;
       throw StringException("unknown insertion mode encountered");
       break;
   }

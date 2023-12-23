@@ -46,6 +46,7 @@ class Parser {
 public:
   Parser();
 
+  void reset();
   void parse(const char *text, size_t textLen);
   void parse(const wchar_t *text, size_t textLen);
 

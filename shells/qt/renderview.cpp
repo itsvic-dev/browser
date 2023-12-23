@@ -5,6 +5,7 @@
 #include "qimage.h"
 #include "qpainter.h"
 #include "qwidget.h"
+#include <exception>
 #include <memory>
 
 RenderView::RenderView(QWidget *parent) : QWidget(parent) {}
@@ -15,10 +16,19 @@ void RenderView::setHtmlData(QString data) {
 
   // create a fresh Document for the parser
   m_parser.document = std::make_shared<LibDOM::Document>();
+  m_parser.reset();
 
   // parse the document
   const QByteArray stringData = m_htmlData.toUtf8();
-  m_parser.parse(stringData.constData(), stringData.length());
+  const wchar_t eof[] = {EOF};
+  try {
+    m_parser.parse(stringData.constData(), stringData.length());
+    m_parser.parse(eof, 1);
+  } catch (std::exception &exc) {
+    setHtmlData(QString("<p>Failed to parse website: ") + exc.what() +
+                "</p><p>Check the console for details.</p>");
+    return;
+  }
   update();
 }
 

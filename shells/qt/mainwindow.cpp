@@ -40,4 +40,5 @@ void MainWindow::onUrlChanged() {
   m_request.setHeader(QNetworkRequest::UserAgentHeader, BROWSER_USER_AGENT);
   m_request.setUrl(m_urlBar->text());
   m_accessManager->get(m_request);
+  m_renderView->setHtmlData("<p>Loading...</p>");
 }

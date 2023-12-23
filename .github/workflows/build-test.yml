@@ -19,11 +19,13 @@ jobs:
         run: |
           pip install meson ninja
           sudo apt update
-          sudo apt install freetype2-dev fontconfig-dev lcov
+          sudo apt install libfreetype-dev libfontconfig-dev lcov
       - name: Configure build
         run: meson setup builddir
       - name: Test
-        run: meson test -C builddir
+        run: |
+          cd builddir
+          ninja test
       - uses: actions/upload-artifact@v3
         if: failure()
         with:
