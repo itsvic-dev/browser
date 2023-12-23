@@ -19,7 +19,7 @@ jobs:
         run: |
           pip install meson ninja
           sudo apt update
-          sudo apt install libfreetype-dev libfontconfig-dev lcov
+          sudo apt install libcurl4-gnutls-dev libfreetype-dev libfontconfig-dev lcov
       - name: Configure build
         run: meson setup builddir
       - name: Test
