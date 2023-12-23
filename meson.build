@@ -32,7 +32,7 @@ if libcurl.found()
   subdir('shells/curl')
 endif
 
-qt6_dep = dependency('qt6', required: get_option('qt_shell'), modules: ['Core', 'Widgets'])
+qt6_dep = dependency('qt6', required: get_option('qt_shell'), modules: ['Core', 'Widgets', 'Network'])
 if qt6_dep.found()
   subdir('shells/qt')
 endif

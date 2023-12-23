@@ -26,6 +26,8 @@ Renderer::~Renderer() { FcFini(); }
 
 void Renderer::renderToViewport(std::shared_ptr<LibDOM::Document> document,
                                 std::shared_ptr<Viewport> viewport) {
+  if (document->body == nullptr)
+    return;
   renderElement(document->body, viewport, 0, 0);
 }
 
