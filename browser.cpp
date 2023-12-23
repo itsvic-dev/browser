@@ -1,4 +1,6 @@
 #include "libdom/node.h"
+#include "libdomrenderer/renderer.h"
+#include "libdomrenderer/viewport.h"
 #include "libhtml.h"
 #include "version.h"
 #include <cassert>
@@ -6,7 +8,9 @@
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <exception>
+#include <fstream>
 #include <iostream>
+#include <memory>
 
 LibHTML::Parser parser;
 
@@ -58,6 +62,8 @@ int main(int argc, char **argv) {
   if (success != CURLE_OK) {
     return -1;
   }
+  curl_slist_free_all(headers);
+
   // let the tokenizer know we're EOF'd now
   const wchar_t eof[] = {EOF};
   parser.parse(eof, 1);
@@ -65,6 +71,22 @@ int main(int argc, char **argv) {
   std::cout << "\nDOM tree dump:\n";
   walkTree(parser.document);
 
-  curl_slist_free_all(headers);
+  // render tree
+  auto viewport = std::make_shared<LibDOMRenderer::Viewport>(800, 600);
+  LibDOMRenderer::Renderer renderer;
+  renderer.renderToViewport(parser.document, viewport);
+
+  // output ppm
+  std::ofstream ppm("test.ppm");
+  ppm << "P3\n"
+      << viewport->getWidth() << " " << viewport->getHeight() << "\n255\n";
+
+  for (size_t i = 0; i < viewport->getWidth() * viewport->getHeight(); i++) {
+    LibDOMRenderer::Color color = viewport->getBuffer()[i];
+    ppm << (int)color.red << " " << (int)color.green << " " << (int)color.blue
+        << "\n";
+  }
+
+  ppm.flush();
   return 0;
 }

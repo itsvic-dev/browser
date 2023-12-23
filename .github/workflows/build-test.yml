@@ -19,7 +19,7 @@ jobs:
         run: |
           pip install meson ninja
           sudo apt update
-          sudo apt install libcurl4-gnutls-dev
+          sudo apt install libcurl4-gnutls-dev freetype2-dev fontconfig-dev
       - name: Configure build
         run: meson setup builddir --prefix $PWD/out
       - name: Build
@@ -31,7 +31,6 @@ jobs:
           name: Installed binaries
           path: out/
 
-
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -42,7 +41,7 @@ jobs:
         run: |
           pip install meson ninja
           sudo apt update
-          sudo apt install libcurl4-gnutls-dev lcov
+          sudo apt install libcurl4-gnutls-dev freetype2-dev fontconfig-dev lcov
       - name: Configure build
         run: meson setup builddir
       - name: Test

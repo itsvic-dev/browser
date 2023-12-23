@@ -19,6 +19,7 @@ libcurl = dependency(
 
 subdir('components/libdom')
 subdir('components/libhtml')
+subdir('components/libdomrenderer')
 
 conf_data = configuration_data()
 conf_data.set('version', meson.project_version())
@@ -33,6 +34,7 @@ exe = executable(
 
     # internal deps
     libhtml,
+    libdomrenderer,
   ],
   include_directories: [
     include_directories('include'),

@@ -8,6 +8,7 @@
 #include "libhtml/tokens.h"
 #include <algorithm>
 #include <cassert>
+#include <cctype>
 #include <codecvt>
 #include <cstddef>
 #include <cwchar>
@@ -172,6 +173,7 @@ void Parser::beforeHead(std::unique_ptr<Token> token) {
       auto elem = INSERT_HTML_ELEMENT(tagToken);
       m_headElementPointer = elem;
       m_insertionMode = IN_HEAD;
+      document->head = elem;
       return;
     }
     token = std::move(tagToken);
@@ -193,6 +195,7 @@ anythingElse:
   auto elem = INSERT_HTML_ELEMENT(tagToken);
   m_headElementPointer = elem;
   m_insertionMode = IN_HEAD;
+  document->head = elem;
   REPROCESS;
 }
 
@@ -328,9 +331,10 @@ void Parser::afterHead(std::unique_ptr<Token> token) {
       return;
     }
     if (tagToken->name() == L"body") {
-      INSERT_HTML_ELEMENT(tagToken);
+      auto elem = INSERT_HTML_ELEMENT(tagToken);
       m_framesetOk = false;
       m_insertionMode = IN_BODY;
+      document->body = elem;
       return;
     }
     if (tagToken->name() == L"frameset") {
@@ -364,8 +368,9 @@ void Parser::afterHead(std::unique_ptr<Token> token) {
 anythingElse:
   auto tagToken = std::unique_ptr<TagToken>(new TagToken(START_TAG));
   tagToken->appendName(L"body");
-  INSERT_HTML_ELEMENT(tagToken);
+  auto elem = INSERT_HTML_ELEMENT(tagToken);
   m_insertionMode = IN_BODY;
+  document->body = elem;
   REPROCESS;
 }
 
@@ -933,11 +938,19 @@ void Parser::insertCharacter(std::unique_ptr<CharacterToken> token) {
       location->childNodes.back()->nodeType == LibDOM::Node::TEXT_NODE) {
     text = std::static_pointer_cast<LibDOM::Text>(location->childNodes.back());
   } else {
+    if (isspace(token->character()))
+      return;
     text = std::shared_ptr<LibDOM::Text>(new LibDOM::Text());
     location->appendChild(text);
   }
 
-  text->data += data;
+  if (isspace(token->character())) {
+    if (text->data.back() == L' ')
+      return;
+    text->data += L' ';
+  } else {
+    text->data += data;
+  }
 }
 
 /** https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment */

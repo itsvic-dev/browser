@@ -32,7 +32,7 @@ public:
   Node *parentNode = nullptr;
   std::vector<std::shared_ptr<Node>> childNodes;
 
-  void appendChild(std::shared_ptr<Node> node);
+  virtual void appendChild(std::shared_ptr<Node> node);
 
   virtual const std::string internalName();
 };

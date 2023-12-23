@@ -4,6 +4,8 @@ stdenv.mkDerivation {
     buildInputs = [
         pkg-config
         curl
+        freetype
+        fontconfig
         lcov
     ];
 }
