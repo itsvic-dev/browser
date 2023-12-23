@@ -694,6 +694,7 @@ void Parser::inBody(std::unique_ptr<Token> token) {
 
     reconstructActiveFormattingElements();
     INSERT_HTML_ELEMENT(tagToken);
+    return;
   }
 
   if (token->type() == END_OF_FILE) {

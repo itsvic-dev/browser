@@ -52,9 +52,11 @@ size_t Renderer::renderElement(std::shared_ptr<LibDOM::Element> element,
             renderText(std::static_pointer_cast<LibDOM::Text>(child), viewport,
                        x, y + mainAxisOffset);
         break;
+      case LibDOM::Node::COMMENT_NODE:
+        break;
       default:
-        std::cout << "[LibDOMRenderer] unknown type " << child->nodeType
-                  << "\n";
+        std::wcout << "[LibDOMRenderer] unknown type " << child->nodeType
+                   << "\n";
         throw 0;
     }
   }

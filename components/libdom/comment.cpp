@@ -3,6 +3,9 @@
 
 namespace LibDOM {
 
-Comment::Comment(DOMString data) : CharacterData() { this->data = data; }
+Comment::Comment(DOMString data) : CharacterData() {
+  this->data = data;
+  this->nodeType = COMMENT_NODE;
+}
 
 } // namespace LibDOM
