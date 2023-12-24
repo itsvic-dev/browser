@@ -22,13 +22,6 @@ public:
                         std::shared_ptr<Viewport> viewport);
 
 private:
-  /** renderX functions take in a node, a viewport, and X and Y offsets, and
-   * return an offset of their main axis */
-  size_t renderElement(std::shared_ptr<LibDOM::Element> element,
-                       std::shared_ptr<Viewport> viewport, size_t x, size_t y);
-  size_t renderText(std::shared_ptr<LibDOM::Text> text,
-                    std::shared_ptr<Viewport> viewport, size_t x, size_t y);
-
   void putBitmap(FT_Bitmap *bitmap, std::shared_ptr<Viewport> viewport, long x,
                  long y);
 

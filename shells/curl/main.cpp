@@ -81,10 +81,10 @@ int main(int argc, char **argv) {
   ppm << "P3\n"
       << viewport->getWidth() << " " << viewport->getHeight() << "\n255\n";
 
-  for (size_t i = 0; i < viewport->getWidth() * viewport->getHeight(); i++) {
-    LibDOMRenderer::Color color = viewport->getBuffer()[i];
-    ppm << (int)color.red << " " << (int)color.green << " " << (int)color.blue
-        << "\n";
+  for (size_t i = 0; i < viewport->getWidth() * viewport->getHeight() * 3;
+       i++) {
+    uint8_t color = viewport->getBuffer()[i];
+    ppm << (int)color << "\n";
   }
 
   ppm.flush();
